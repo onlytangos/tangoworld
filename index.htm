@@ -377,22 +377,19 @@ function readParam(){
 	}
 }
 
-function peopleDisponible(){
-	return (typeof privatePeople!='undefined') ? privatePeople : publicPeople;
-}
 
 function eligeDatos(){
 	if (app=='mundo'){
-		datos=publicEvent.concat(peopleDisponible());
+		datos=eventosTango().concat(personasTango());
 		titulo1='TangoWorld';
 		titulo2='<a href="https://www.facebook.com/profile.php?id=100093497583670" target="_blank">by KoKoTango</a>'+
-			'<br><small>'+(typeof privatePeople!='undefined' ? 'private version' : 'public version')+'</small>';
+			'<br><small>'+(esPrivado() ? 'private version' : 'public version')+'</small>';
 		for (const t in TIPOS){ colorTipo.set(t,TIPOS[t].color); }
 		for (const r in ROLES){ colorTipo.set(r,ROLES[r].color); }
 		for (const t in TIPOS_PERSONA){ colorTipo.set(t,TIPOS_PERSONA[t].color); }
 	}
 	if(app=='people'){
-		datos=peopleDisponible();
+		datos=personasTango().slice();
 		titulo1=`People &#128518; `;
 		titulo2='';
 		for (const r in ROLES){ colorTipo.set(r,ROLES[r].colorPeople); }
@@ -415,8 +412,8 @@ function montaMenu(){
 	fijo.appendChild(div('titulo2',titulo2+'<br/><br/>'));
 	fijo.appendChild(div('sumario'));
 	// la fecha de los datos: en el móvil, en la línea del total (update: no cabe, upd)
-	if (typeof publicEventFecha!='undefined'){
-		fijo.appendChild(div('update',(esMovil() ? 'upd ' : 'update: ')+esc(publicEventFecha)));
+	if (fechaTango()){
+		fijo.appendChild(div('update',(esMovil() ? 'upd ' : 'update: ')+esc(fechaTango())));
 	}
 	if (app=='mundo' || app=='people'){
 		crearBuscador(fijo);
@@ -442,7 +439,7 @@ function inicio(){
 	const mq=window.matchMedia('(max-width: 600px)');
 	const alCambiarAncho=()=>{
 		const u=document.getElementById('update');
-		if (u){ u.innerHTML=(esMovil() ? 'upd ' : 'update: ')+esc(publicEventFecha); }
+		if (u){ u.innerHTML=(esMovil() ? 'upd ' : 'update: ')+esc(fechaTango()); }
 		renderGo();
 	};
 	if (mq.addEventListener){ mq.addEventListener('change',alCambiarAncho); }else{ mq.addListener(alCambiarAncho); }
@@ -472,7 +469,7 @@ function setParametrosSelectores(fijo){
 }
 
 function crearBotonExport(fijo){
-	if (typeof privatePeople=='undefined'){return}
+	if (!esPrivado()){return}
 	const b=document.createElement('button');
 	b.id='exportar';
 	b.textContent='export';
@@ -1403,7 +1400,7 @@ async function descifra(){
 		const datos=bytes(DATOS_CIFRADOS);
 		const clave=await crypto.subtle.importKey('raw',bytes(k.replace(/-/g,'+').replace(/_/g,'/')),'AES-GCM',false,['decrypt']);
 		const texto=await crypto.subtle.decrypt({name:'AES-GCM',iv:datos.slice(0,12)},clave,datos.slice(12));
-		(0,eval)(new TextDecoder().decode(texto));   // var publicEvent=[...]; var publicPeople=[...]
+		(0,eval)(new TextDecoder().decode(texto));   // var publictango=[...]
 		return true;
 	} catch(e){
 		document.body.textContent=k ? 'la clave de la url no es válida' : 'falta la clave en la url (#k=...)';

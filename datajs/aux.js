@@ -73,6 +73,24 @@ function esEvento(tipo){
   return ['event','venue','milonga','practica','academy','list'].includes(String(tipo).trim().split(' ')[0]);
 }
 
+// los datos (2026-10-24, un solo fichero, eventos y personas juntos): en local
+// datajs/privatetango.out.js (todo, privado: var privatetango); en GitHub, publictango (lo
+// que se publica, cifrado: cmd.publicar/push.sh). Se leen tras descifrarlos (las páginas
+// los piden ya cargados)
+let _tango = null;
+function datosTango(){
+  if (!_tango){
+    const t = typeof privatetango != 'undefined' ? privatetango : typeof publictango != 'undefined' ? publictango : [];
+    _tango = {todas: t, eventos: t.filter(c => esEvento(c[CAMPO.tipo])), personas: t.filter(c => !esEvento(c[CAMPO.tipo]))};
+  }
+  return _tango;
+}
+const eventosTango = () => datosTango().eventos;
+const personasTango = () => datosTango().personas;
+const esPrivado = () => typeof privatetango != 'undefined';
+// el día del join (var privatetangoFecha o publictangoFecha): '' si no lo trae
+const fechaTango = () => typeof privatetangoFecha != 'undefined' ? privatetangoFecha : typeof publictangoFecha != 'undefined' ? publictangoFecha : '';
+
 // id del registro (campo id: 8 letras al azar, fijo; lo pone el join, como es_id de
 // import/comun.py); '' si la fila no lo tiene
 function idDe(fila){
@@ -82,7 +100,8 @@ function idDe(fila){
 
 // url para comparar (la misma página aunque se escriba distinto): sin https://,
 // www., m., web., mayúsculas, #ancla ni / final. Parámetros: en Facebook solo
-// id= y fbid=; en las demás webs, todos salvo los de seguimiento (utm_,
+// id= y fbid=, y facebook.com/<id>, /p/<nombre>-<id> y /people/<nombre>/<id> como
+// profile.php?id=<id>; en las demás webs, todos salvo los de seguimiento (utm_,
 // fbclid...): en YouTube watch?v= es otro vídeo. Igual que clave_url de
 // import/comun.py
 const SEGUIMIENTO=/^(utm_\w+|fbclid|gclid|mibextid|acontext|__tn__|__cft__\[?\d*\]?|rdid|ref|ref_src|si|igsh|share_url)=/;
@@ -92,24 +111,27 @@ function claveUrl(u){
   u=u.replace(/^https?:\/\//,'').replace(/^(www\.|m\.|web\.)/,'').split('#')[0];
   const i=u.indexOf('?');
   const ruta=(i<0 ? u : u.slice(0,i)).replace(/\/+$/,''), q=i<0 ? '' : u.slice(i+1);
+  // facebook.com/<id>, /p/<nombre>-<id>, /people/<nombre>/<id>: la misma que profile.php?id=<id>
+  const fid=ruta.match(/^(?:facebook|fb)\.com\/(?:p\/[^\/]*-|people\/[^\/]+\/)?(\d{6,})$/);
+  if (fid){return 'facebook.com/profile.php?id='+fid[1]}
   const ps=/^(facebook\.com|fb\.com)/.test(ruta)
     ? q.split('&').filter(p => /^(id|fbid)=\d+$/.test(p)).slice(0,1)
     : q.split('&').filter(p => p && !SEGUIMIENTO.test(p));
   return ruta+(ps.length ? '?'+ps.join('&') : '');
 }
 
-// foto de un id (campo 9, idfoto): la primera que haya en import/src.comun/fotos/foto0,1,2,9/
-// (eventos 0,2,1,9: la portada antes), según fotosId de datajs/fotoid.js
+// foto de un id (campo 9, idfoto): la primera que haya en import/src.comun/fotos/foto0,1,2/
+// (eventos 0,2,1: la portada antes), según fotosId de datajs/fotoid.js
 // (se carga después de aux.js: se lee en la primera llamada).
 // {carpeta, fichero: '<id>.<ext>'}; null si no tiene
 let fotoSetsCache=null;
 function fotoDeId(idfoto,evento){
   if (!idfoto || idfoto=='-'){return null}       // "-": sin foto
   if (!fotoSetsCache){
-    fotoSetsCache=Object.fromEntries(['0','1','2','9'].map(c =>
+    fotoSetsCache=Object.fromEntries(['0','1','2'].map(c =>
       [c,new Set(typeof fotosId!='undefined' && fotosId[c] ? fotosId[c] : [])]));
   }
-  for (const c of (evento ? ['0','2','1','9'] : ['0','1','2','9']))
+  for (const c of (evento ? ['0','2','1'] : ['0','1','2']))
     for (const e of ['jpg','webp','png'])
       if (fotoSetsCache[c].has(idfoto+'.'+e)){return {carpeta:c, fichero:idfoto+'.'+e}}
   return null;
@@ -156,7 +178,7 @@ var TIPOS = {
 // person una persona; group un grupo o comunidad de tango; shop una tienda que no es
 // una persona (una persona que vende lleva el rol shp); hostel un alojamiento.
 // (hasta 2026-10-19, person se llamaba people y group, community: el join los cambia)
-// publico: entra en publicPeople aunque no tenga roles públicos
+// publico: entra en publictango aunque no tenga roles públicos
 var TIPOS_PERSONA = {
   "person":    {"publico": 0, "desc": "una persona",                "color": "#f0f0f0"},
   "group":     {"publico": 1, "desc": "grupo o comunidad de tango", "color": "#c8f0f0"},
