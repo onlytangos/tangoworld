@@ -75,12 +75,12 @@ function esEvento(tipo){
 
 // los datos (2026-10-24, un solo fichero, eventos y personas juntos): en local
 // datajs/privatetango.out.js (todo, privado: var privatetango); en GitHub, publictango (lo
-// que se publica, cifrado: cmd.publicar/push.sh). Se leen tras descifrarlos (las páginas
-// los piden ya cargados)
+// que se publica, cifrado: cmd.publicar/push.sh), que llega después, al descifrarlo: si se
+// piden antes, salen vacíos y se rehacen cuando llegan (la memoria va con el array de datos)
 let _tango = null;
 function datosTango(){
-  if (!_tango){
-    const t = typeof privatetango != 'undefined' ? privatetango : typeof publictango != 'undefined' ? publictango : [];
+  const t = typeof privatetango != 'undefined' ? privatetango : typeof publictango != 'undefined' ? publictango : [];
+  if (!_tango || _tango.todas !== t){
     _tango = {todas: t, eventos: t.filter(c => esEvento(c[CAMPO.tipo])), personas: t.filter(c => !esEvento(c[CAMPO.tipo]))};
   }
   return _tango;
