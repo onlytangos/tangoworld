@@ -360,7 +360,7 @@ li.anual .dondeAnual{
 <script>
 
 const meses=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const opcionesVistas=['annual','countries','regular','regday'];
+const opcionesVistas=['countries','annual','regular','regday'];   // la primera, la de por defecto
 const opcionesFav=['fav','fav2'];
 
 const fsel0='> all area';
@@ -530,7 +530,7 @@ function crearSelect(id,alCambiar){
 function crearSel5(){
 	const select=crearSelect('selector5',change5);
 	opcionesVistas.concat(opcionesFav).forEach(x =>
-		opcionTexto(select,x,textoFav[x] || 'by '+({countries:'locations',regday:'reg day'}[x] || x)));
+		opcionTexto(select,x,textoFav[x] || {countries:'all by loc',regday:'by reg day'}[x] || 'by '+x));
 	return select;
 }
 
