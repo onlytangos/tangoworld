@@ -212,6 +212,31 @@ a#link{
 	font-size: 12px;
 	color: #666;
 }
+/* by reg day: tabla compacta de 4 columnas (hora, frecuencia, nombre, venue; sin frecuencia si todas son weekly), una cabecera por día */
+table.regDia{
+	border-collapse: collapse;
+	font-size: 12px;
+}
+table.regDia th{
+	text-align: left;
+	padding: 10px 4px 2px;
+	border-bottom: 1px solid #ccc;
+}
+table.regDia td{
+	padding: 1px 10px 1px 4px;
+	white-space: nowrap;
+	vertical-align: baseline;
+}
+table.regDia td.venue{
+	white-space: normal;
+}
+table.regDia td.hora{
+	background-color: #BFD7EA;
+	font-variant-numeric: tabular-nums;
+}
+table.regDia td.gris{
+	color: #666;
+}
 #fijo h3{
 	float: none;
 	margin: 0px 0px 4px 0px;
@@ -335,7 +360,7 @@ li.anual .dondeAnual{
 <script>
 
 const meses=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const opcionesVistas=['annual','countries','regular'];
+const opcionesVistas=['annual','countries','regular','regday'];
 const opcionesFav=['fav','fav2'];
 
 const fsel0='> all area';
@@ -505,7 +530,7 @@ function crearSelect(id,alCambiar){
 function crearSel5(){
 	const select=crearSelect('selector5',change5);
 	opcionesVistas.concat(opcionesFav).forEach(x =>
-		opcionTexto(select,x,textoFav[x] || 'by '+(x=='countries' ? 'locations' : x)));
+		opcionTexto(select,x,textoFav[x] || 'by '+({countries:'locations',regday:'reg day'}[x] || x)));
 	return select;
 }
 
@@ -829,7 +854,7 @@ function damecol1(col,col1,v1){
 
 function prefijoVista(){
 	const vista=valorVisible('selector5');
-	if (vista=='regular'){return 'REG'}
+	if (vista=='regular' || vista=='regday'){return 'REG'}
 	if (vista=='annual'){return 'EVT'}
 	return '';
 }
@@ -981,7 +1006,7 @@ function setSel(){
 	const sel5=document.getElementById('selector5');
 	const s5=sel5 ? sel5.value : '';
 	const sel4=document.getElementById('selector4');
-	if (s5=='regular'){
+	if (s5=='regular' || s5=='regday'){
 		document.getElementById('selector1').style.display='';
 		document.getElementById('selector2').style.display='';
 		document.getElementById('selector3').style.display='none';
@@ -1375,12 +1400,58 @@ function renderAnnualCompact(s0,s1,s2,s3,s4){
 	return contadorL1;
 }
 
+// by reg day: las fechas regulares (REG) por día de la semana, desde hoy: una cabecera por día y
+// una línea compacta de 4 columnas por cada una: hora (1530-1900), frecuencia (weekly, daily, 1ª 3ª, last; si todas
+// son weekly, sin esta columna), nombre y venue
+const DIAS_REG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const frecReg = r => r.frec=='D' ? 'daily' : r.frec=='W' ? 'weekly' : r.semanas.map(s => s=='L' ? 'last' : s+'ª').join(' ');
+
+function renderRegDay(s0,s1,s2){
+	const results=document.getElementById('resultados');
+	const entradas=[], vistos=new Set();
+	for (let i=0;i<datos.length;i++){
+		const item=getObj(i);
+		item.reg=leeReg(item.fechas);
+		if (!item.reg || !item.reg.dias.length){continue}
+		if (!sinFiltro(s0) && item.fila[CAMPO.area]!=s0){continue}
+		if (!sinFiltro(s1) && s1!=item.pais){continue}
+		if (!sinFiltro(s2) && s2!=item.ciudad){continue}
+		item.venue=(item.varios.loc||['-'])[0];
+		const clave=item.venue+'#'+item.fechas+'#'+item.nombre;
+		if (vistos.has(clave)){continue}
+		vistos.add(clave);
+		filasVisibles.add(item.fila);
+		entradas.push(item);
+	}
+	const orden=(a,b) => a.pais.localeCompare(b.pais) || a.ciudad.localeCompare(b.ciudad)
+		|| (a.reg.hora||'9999').localeCompare(b.reg.hora||'9999') || a.nombre.localeCompare(b.nombre);
+	const conFrec=entradas.some(x => x.reg.frec!='W');
+	const hoy=new Date();
+	let html='<table class="regDia">';
+	for (let k=0;k<7;k++){
+		const f=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()+k), d=f.getDay();
+		const delDia=entradas.filter(x => x.reg.dias.includes(d)).sort(orden);
+		if (!delDia.length){continue}
+		html+='<tr><th colspan="'+(conFrec ? 4 : 3)+'">'+DIAS_REG[d]+'</th></tr>';
+		for (const x of delDia){
+			const url=(x.url && x.url!='-') ? x.url.replace(/"/g,'%22') : '';
+			const nombre=url ? '<a href="'+url+'" target="_blank">'+esc(x.nombre)+'</a>' : esc(x.nombre);
+			html+='<tr><td class="hora">'+esc(x.reg.hora)+'</td>'+(conFrec ? '<td class="gris">'+frecReg(x.reg)+'</td>' : '')+
+				'<td>'+nombre+'</td><td class="gris venue">'+esc(x.venue)+'</td></tr>';
+		}
+	}
+	results.innerHTML=html+'</table><br/><br/>';
+	return entradas.length;
+}
+
 function render(s0,s1,s2,s3,s4,s5){
 	let contadorL1;
 	filasVisibles.clear();
 	document.getElementById('resultados').classList.toggle('anualUl',s5=='annual');
 	if (s5=='regular'){
 		contadorL1=renderRegular(s0,s1,s2,s3,s4);
+	}else if (s5=='regday'){
+		contadorL1=renderRegDay(s0,s1,s2);
 	}else if (s5=='annual'){
 		contadorL1=renderAnnualCompact(s0,s1,s2,s3,s4);
 	}else{
