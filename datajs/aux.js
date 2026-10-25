@@ -120,18 +120,18 @@ function claveUrl(u){
   return ruta+(ps.length ? '?'+ps.join('&') : '');
 }
 
-// foto de un id (campo 9, idfoto): la primera que haya en import/src.comun/fotos/foto0,1,2/
-// (eventos 0,2,1: la portada antes), según fotosId de datajs/fotoid.js
+// foto de un id (campo 9, idfoto): la primera que haya en import/src.comun/fotos/foto1,2/
+// (eventos 2,1: la portada antes), según fotosId de datajs/fotoid.js
 // (se carga después de aux.js: se lee en la primera llamada).
 // {carpeta, fichero: '<id>.<ext>'}; null si no tiene
 let fotoSetsCache=null;
 function fotoDeId(idfoto,evento){
   if (!idfoto || idfoto=='-'){return null}       // "-": sin foto
   if (!fotoSetsCache){
-    fotoSetsCache=Object.fromEntries(['0','1','2'].map(c =>
+    fotoSetsCache=Object.fromEntries(['1','2'].map(c =>
       [c,new Set(typeof fotosId!='undefined' && fotosId[c] ? fotosId[c] : [])]));
   }
-  for (const c of (evento ? ['0','2','1'] : ['0','1','2']))
+  for (const c of (evento ? ['2','1'] : ['1','2']))
     for (const e of ['jpg','webp','png'])
       if (fotoSetsCache[c].has(idfoto+'.'+e)){return {carpeta:c, fichero:idfoto+'.'+e}}
   return null;
@@ -158,20 +158,22 @@ la lista de tipos válidos: comun.py pone el más próximo a uno que no esté
 index.htm.
 */
 
+// roles: los roles de evento (ROLES_EVENTO) que lleva todo evento de ese tipo (paso1 roles_de_tipo);
+// los de un event (sin definir), solo a mano (el manual, resfoto in.txt)
 var TIPOS = {
-  "milonga":            {"color": "#adf5d7", "desc": "milonga: regular (puede tener actuación)"},
-  "practica":           {"color": "#d5f5c8", "desc": "práctica: milonga relajada para practicar (regular)"},
-  "venue":              {"color": "#fae3ad", "desc": "sala, local"},
-  "event":              {"color": "#e5f9ff", "desc": "sin definir: no se sabe cuál (se decide más adelante)"},
-  "event party":        {"color": "#d7f6fa", "desc": "fiesta: dos días o menos"},
-  "event festival":     {"color": "#c3e8ff", "desc": "festival: con artistas (shows, clases)"},
-  "event encuentro":    {"color": "#7db1ff", "desc": "encuentro milonguero"},
-  "event marathon":     {"color": "#acccfc", "desc": "maratón: sin artistas, solo baile"},
-  "event camp":         {"color": "#9fd8cb", "desc": "camp: campamento de varios días o semanas, con clases y milongas"},
-  "event championship": {"color": "#ff6961", "desc": "campeonato, competición"},
-  "event seminar":      {"color": "#d0e0f0", "desc": "seminario: una sola pareja de profesores, con clases"},
-  "academy":            {"color": "#f3d4ff", "desc": "academia, escuela, estudio"},
-  "list":               {"color": "#e0d4f7", "desc": "lista o agenda de una zona"}
+  "milonga":            {"color": "#adf5d7", "roles": "mlg",     "desc": "milonga: regular (puede tener actuación)"},
+  "practica":           {"color": "#d5f5c8", "roles": "prc",     "desc": "práctica: milonga relajada para practicar (regular)"},
+  "venue":              {"color": "#fae3ad", "roles": "",        "desc": "sala, local"},
+  "event":              {"color": "#e5f9ff", "roles": "",        "desc": "sin definir: no se sabe cuál (se decide más adelante)"},
+  "event party":        {"color": "#d7f6fa", "roles": "mlg",     "desc": "fiesta: dos días o menos"},
+  "event festival":     {"color": "#c3e8ff", "roles": "mlg,wks,shw", "desc": "festival: con artistas (shows, clases)"},
+  "event encuentro":    {"color": "#7db1ff", "roles": "mlg,enc",     "desc": "encuentro milonguero"},
+  "event marathon":     {"color": "#acccfc", "roles": "mlg,mar",     "desc": "maratón: sin artistas, solo baile"},
+  "event camp":         {"color": "#9fd8cb", "roles": "mlg,wks", "desc": "camp: campamento de varios días o semanas, con clases y milongas"},
+  "event championship": {"color": "#ff6961", "roles": "cup",     "desc": "campeonato, competición"},
+  "event seminar":      {"color": "#d0e0f0", "roles": "wks",     "desc": "seminario: una sola pareja de profesores, con clases"},
+  "academy":            {"color": "#f3d4ff", "roles": "",     "desc": "academia, escuela, estudio"},
+  "list":               {"color": "#e0d4f7", "roles": "",        "desc": "lista o agenda de una zona"}
 };
 
 // tipos de people (campo 4 de people, desde 2026-10-19; antes los roles cmt y bed):
@@ -209,6 +211,20 @@ var ROLES = {
 };
 
 // ROLES_EQUIVALENCIAS (roles antiguos -> rol de ROLES): en datajs/alias.js
+
+// Roles de un evento (campo roles de un evento, separados por coma como los de una persona): lo
+// que trae (un festival: wks,mlg,shw...); de ellos se podrá deducir su tipo
+var ROLES_EVENTO = {
+  "mlg": {"desc": "milonga",                    "nombre": "milonga"},
+  "prc": {"desc": "práctica",                   "nombre": "practica"},
+  "enc": {"desc": "milongas de encuentro",      "nombre": "encuentro"},
+  "mar": {"desc": "milongas de maratón",        "nombre": "marathon"},
+  "wks": {"desc": "workshops, clases",          "nombre": "workshop"},
+  "pvt": {"desc": "clases privadas",            "nombre": "private"},
+  "shw": {"desc": "show",                       "nombre": "show"},
+  "cup": {"desc": "competición, campeonato, cup", "nombre": "championship"},
+  "liv": {"desc": "música en vivo, orquesta",   "nombre": "live"}
+};
 
 
 // ══════════════════════════ FAVORITOS ══════════════════════════

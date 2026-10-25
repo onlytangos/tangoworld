@@ -673,7 +673,7 @@ function get3(a){
 
 function addTiposEvento(select,cuentas,conPrefijo){
 	claves(cuentas).forEach(x => {
-		if (x=='event' || x=='list' || !esEvento(x)){return}
+		if (x=='event' || x=='list' || x=='academy' || !esEvento(x)){return}   // list y academy: aparte (tiposMundo)
 		let y=x.replace('event ','').trim();
 		if (y=='championship'){y='champion'}
 		createOpt(select,x,conPrefijo?get3(y)+'.'+y:y,cuentas.get(x)||0);
@@ -706,6 +706,7 @@ function tiposMundo(select){
 	const grupo=label => { const g=document.createElement('optgroup'); g.label=label; select.appendChild(g); return g; };
 	const gEv=grupo('events');
 	createOpt(gEv,'list','list',sumaCuenta(cuentas,'list'));
+	createOpt(gEv,'academy','academy',sumaCuenta(cuentas,'academy'));   // sin fecha, como list: no cuenta en events
 	createOpt(gEv,'*','events',cuentaFilasTipo('*'));
 	createOpt(gEv,'event','event*',sumaCuenta(cuentas,'event'));
 	addTiposEvento(gEv,cuentas,true);
@@ -1053,7 +1054,7 @@ function renderGo(){
 }
 
 function filtra(cadena1,cadena2){
-	if (cadena1=='*'){ return (esEvento(cadena2) && cadena2!='list') ? 1 : -1; }
+	if (cadena1=='*'){ return (esEvento(cadena2) && cadena2!='list' && cadena2!='academy') ? 1 : -1; }
 	if (cadena1[0]=='+' || cadena1[0]=='!'){
 		const roles=String(cadena2).split(',').map(r => r.trim());
 		const hay=cadena1.slice(1).split(',').some(r => roles.includes(r));
