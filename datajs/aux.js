@@ -120,8 +120,8 @@ function claveUrl(u){
   return ruta+(ps.length ? '?'+ps.join('&') : '');
 }
 
-// foto de un id (campo 9, idfoto): la primera que haya en import/src.comun/fotos/foto1,2/
-// (eventos 2,1: la portada antes; salvo los ids de fotosPerfil, FOTO_PERFIL de adhoc.js: el perfil
+// foto de un id (campo 9, idfoto): la primera que haya en import/src.comun/fotos/foto1,2,8/
+// (8: las imágenes generadas, la última; eventos 2,1,8: la portada antes; salvo los ids de fotosPerfil, FOTO_PERFIL de adhoc.js: el perfil
 // también en sus eventos), según fotosId de datajs/fotoid.js
 // (se carga después de aux.js: se lee en la primera llamada).
 // {carpeta, fichero: '<id>.<ext>'}; null si no tiene
@@ -129,11 +129,11 @@ let fotoSetsCache=null;
 function fotoDeId(idfoto,evento){
   if (!idfoto || idfoto=='-'){return null}       // "-": sin foto
   if (!fotoSetsCache){
-    fotoSetsCache=Object.fromEntries(['1','2'].map(c =>
+    fotoSetsCache=Object.fromEntries(['1','2','8'].map(c =>
       [c,new Set(typeof fotosId!='undefined' && fotosId[c] ? fotosId[c] : [])]));
   }
   const perfil=typeof fotosPerfil!='undefined' && fotosPerfil.includes(idfoto);
-  for (const c of (evento && !perfil ? ['2','1'] : ['1','2']))
+  for (const c of (evento && !perfil ? ['2','1','8'] : ['1','2','8']))
     for (const e of ['jpg','webp','png'])
       if (fotoSetsCache[c].has(idfoto+'.'+e)){return {carpeta:c, fichero:idfoto+'.'+e}}
   return null;
@@ -178,16 +178,14 @@ var TIPOS = {
   "list":               {"color": "#e0d4f7", "roles": "",        "desc": "lista o agenda de una zona"}
 };
 
-// tipos de people (campo 4 de people, desde 2026-10-19; antes los roles cmt y bed):
-// person una persona; group un grupo o comunidad de tango; shop una tienda que no es
-// una persona (una persona que vende lleva el rol shp); hostel un alojamiento.
-// (hasta 2026-10-19, person se llamaba people y group, community: el join los cambia)
+// tipos de people (campo 4 de people, desde 2026-10-19; antes los roles cmt y bed), uno solo:
+// person un tanguero (con sus roles) o group un grupo o comunidad de tango (sin roles).
+// (hasta 2026-10-19, person se llamaba people y group, community; hasta 2026-10-29 había
+// también los tipos shop y hostel, ahora los roles shp y hst: el join los cambia)
 // publico: entra en publictango aunque no tenga roles públicos
 var TIPOS_PERSONA = {
-  "person":    {"publico": 0, "desc": "una persona",                "color": "#f0f0f0"},
-  "group":     {"publico": 1, "desc": "grupo o comunidad de tango", "color": "#c8f0f0"},
-  "shop":      {"publico": 1, "desc": "tienda (no es una persona)", "color": "#c4eb8a"},
-  "hostel":    {"publico": 0, "desc": "alojamiento",                "color": "#d9f2c4"}
+  "person":    {"publico": 0, "desc": "un tanguero",                "color": "#f0f0f0"},
+  "group":     {"publico": 1, "desc": "grupo o comunidad de tango", "color": "#c8f0f0"}
 };
 
 // ════════════════════════════ ROLES ════════════════════════════
@@ -203,13 +201,13 @@ var ROLES = {
   "wrt": {"publico": 1,"desc": "crea contenido: artículos, vídeos, fotos", "nombre": "writer",      "color": "#f9fea0","colorPeople": "#F9EE90"},
   "tch": {"publico": 1,"desc": "profesor que da clases",                   "nombre": "teacher",     "color": "#b3f0e0","colorPeople": "#b3f0e0"},
   "shp": {"publico": 1,"desc": "tienda",                                   "nombre": "shop",        "color": "#d4f5a3","colorPeople": "#d4f5a3"},
+  "hst": {"publico": 1,"desc": "alojamiento",                              "nombre": "hostel",      "color": "#d9f2c4","colorPeople": "#d9f2c4"},
   "mil": {"publico": 0,"desc": "buen baile",                               "nombre": "milonguera",  "color": "#ffccff","colorPeople": "#ffccff"},
   "com": {"publico": 0,"desc": "buena compañía",                           "nombre": "compañía",    "color": "#ffcccc","colorPeople": "#ffcccc"},
   "vip": {"publico": 0,"desc": "mil+com+inf",                              "nombre": "mil+com+inf", "color": "#ff9999","colorPeople": "#ff9999"},
   "dan": {"publico": 0,"desc": "baile regular",                            "nombre": "dancer",      "color": "#cfe8ff","colorPeople": "#cfe8ff"},
-  "inf": {"publico": 0,"desc": "proveedor de información",                 "nombre": "info",        "color": "#F9AA90","colorPeople": "#F9AA90"},
-  "non": {"publico": 0,"desc": "no interesa",                              "nombre": "",            "color": "#e0e0e0","colorPeople": "#e0e0e0"},
-  "prs": {"publico": 0,"desc": "persona",                                  "nombre": "persona",     "color": "#f0f0f0","colorPeople": "#f0f0f0"}
+  "inf": {"publico": 0,"desc": "proveedor de información",                 "nombre": "source",      "color": "#F9AA90","colorPeople": "#F9AA90"},
+  "non": {"publico": 0,"desc": "no interesa",                              "nombre": "pariah",      "color": "#e0e0e0","colorPeople": "#e0e0e0"}
 };
 
 // ROLES_EQUIVALENCIAS (roles antiguos -> rol de ROLES): en datajs/alias.js

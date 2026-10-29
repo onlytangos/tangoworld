@@ -351,6 +351,53 @@ li.anual .dondeAnual{
 		padding-left: 1px;
 	}
 }
+/* el popup de KoKoTango (como el de KK de tangoglobe): al pulsar by KoKoTango */
+#kk{
+	border: 1px solid #ccc;
+	border-radius: 8px;
+	padding: 16px 44px 16px 20px;
+	max-width: 440px;
+	font-size: 14px;
+	box-shadow: 0px 2px 12px rgba(0,0,0,0.3);
+}
+#kk::backdrop{
+	background: rgba(0,0,0,0.3);
+}
+#kk p{
+	margin: 0px 0px 6px 0px;
+}
+#kk ul{
+	list-style: circle;
+	margin: 6px 0px;
+	padding-left: 1.3em;
+}
+#kk li{
+	margin: 4px 0px;
+}
+/* el botón de cerrar, el del detalle de tangoglobe: un círculo con la x */
+#kkCerrar{
+	position: absolute;
+	top: 6px;
+	right: 8px;
+	box-sizing: border-box;
+	width: 26px;
+	height: 26px;
+	padding: 2px 0px 0px;
+	border: 2px solid currentColor;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: none;
+	color: #888;
+	font-size: 20px;
+	line-height: 1;
+	font-weight: 700;
+	cursor: pointer;
+}
+#kkCerrar:hover{
+	color: #444;
+}
 </style>
 
 <script src='datajs/aux.js'></script>
@@ -396,18 +443,91 @@ function readParam(){
 	for (const [clave, valor] of params.entries()) {
 		parametros[clave] = valor;
 	}
+	deParametrosGlobe(params);
 	const defecto={app:'mundo',area:fsel0,pais:fsel1,ciudad:fsel2,tipo:fsel3,fecha:fsel4,vista:fsel5};
 	for (const clave in defecto){
 		if (parametros[clave]==undefined){ parametros[clave]=defecto[clave]; }
 	}
 }
 
+// los mismos parámetros que tangoglobe (app.tg, urlRuta): a= área, b= tipo, pa= país, ci= país|ciudad, f= 2026-12 (el mes),
+// r= un rol de people; los propios (area, pais, ciudad, tipo, fecha) mandan. Sin equivalente aquí: lu, w, id, c, d
+const TIPO_GLOBE={lis:'list',aca:'academy',evt:'*',sem:'event seminar',mil:'milonga',pra:'practica',peo:'!'};
+function deParametrosGlobe(q){
+	const pon=(clave,valor) => { if (valor && parametros[clave]==undefined){ parametros[clave]=valor; } };
+	if (q.get('a') && q.get('a')!='*'){ pon('area',q.get('a')); }
+	const [pais,ciudad]=(q.get('ci') || '').split('|');
+	pon('pais',q.get('pa') || pais);
+	pon('ciudad',ciudad);
+	const b=q.get('b') || '', roles=(q.get('r') || '').split(',').filter(Boolean);
+	pon('tipo', b=='peo' && roles.length==1 ? roles[0] : TIPO_GLOBE[b] || (b in TIPOS_PERSONA ? b : ''));
+	const mes=parseInt(((q.get('f') || '').split('-'))[1]);
+	if (mes>=1 && mes<=12){ pon('fecha',meses[mes-1]); }
+}
+
+// el popup de KoKoTango, como el de KK de tangoglobe; abajo, go to tangoglobe con lo elegido aquí (urlGlobe)
+const FB_KOKO='https://www.facebook.com/profile.php?id=100093497583670';
+function muestraInfo(){
+	let d=document.getElementById('kk');
+	if (!d){
+		d=document.createElement('dialog');
+		d.id='kk';
+		d.innerHTML='<button id="kkCerrar" title="close">&times;</button>'+
+			'<p><a href="'+FB_KOKO+'" target="_blank" rel="noopener">by KoKoTango</a> ('+(esPrivado() ? 'private version' : 'public version')+')</p>'+
+			'<p><a href="'+FB_KOKO+'" target="_blank" rel="noopener">send me a message with your urls</a></p>'+
+			'<ul><li>powered by Opus 5.5</li>'+
+			'<li><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> (Creative Commons Reconocimiento–NoComercial–CompartirIgual)</li></ul>'+
+			'<p><a id="aTg" href="#" target="_blank" rel="noopener">go to tangoglobe</a></p>';
+		document.body.appendChild(d);
+		d.querySelector('#kkCerrar').onclick=() => d.close();
+		d.onclick=e => { if (e.target==d){ d.close(); } };
+		d.querySelector('#aTg').onclick=() => { d.querySelector('#aTg').href=urlGlobe(); };
+	}
+	d.showModal();
+	return false;
+}
+
+// la url de tangoglobe con lo elegido aquí, en sus parámetros (los de urlRuta de app.tg): a, pa o ci, b (y r), f;
+// publicada, el Worker (/w, push.sh escribe URL_TG): sin la clave a la vista; en local, app.tg
+const URL_TG='https://tangoinfo-eventos.55tgb.workers.dev/w';
+function bGlobe(tipo,vista){
+	if (vista=='regular' || vista=='regday'){ return ['mil',''] }
+	if (!tipo){ return [vista=='annual' ? 'evt' : '*',''] }
+	if (tipo=='list'){ return ['lis',''] }
+	if (tipo=='academy'){ return ['aca',''] }
+	if (tipo=='*' || tipo.startsWith('event')){ return [tipo.includes('seminar') ? 'sem' : 'evt',''] }
+	if (tipo=='milonga' || tipo=='practica'){ return [tipo.slice(0,3),''] }
+	if (tipo[0]=='!' || tipo[0]=='+'){ return ['peo',''] }
+	const t=tipo.split(',')[0];
+	if (t in TIPOS_PERSONA && t!='person'){ return [t,''] }
+	return ['peo', t in ROLES ? t : ''];
+}
+function urlGlobe(){
+	const q=new URLSearchParams();
+	const area=valorVisible('selector0'), pais=valorVisible('selector1'), ciudad=valorVisible('selector2');
+	const mes=valorVisible('selector4'), [b,rol]=bGlobe(valorVisible('selector3'),valorVisible('selector5'));
+	if (area){ q.set('a',area); }
+	q.set('b',b);
+	if (ciudad){
+		const p=pais || (datos.find(f => f[CAMPO.city]==ciudad) || [])[CAMPO.country];
+		if (p){ q.set('ci',p+'|'+ciudad); }
+	}
+	else if (pais){ q.set('pa',pais); }
+	const m=meses.indexOf(mes);
+	if (m>=0 && b!='mil'){   // el mes de los doce siguientes de tangoglobe: los ya pasados, del año que viene
+		const hoy=new Date();
+		q.set('f',(hoy.getFullYear()+(m<hoy.getMonth() ? 1 : 0))+'-'+(m+1));
+	}
+	if (rol){ q.set('r',rol); }
+	const busca='?'+q.toString().replace(/%2C/g,',').replace(/%7C/g,'|');
+	return URL_TG ? URL_TG+busca : new URL('../app.tg/index.htm',location.href).href+busca;
+}
 
 function eligeDatos(){
 	if (app=='mundo'){
 		datos=eventosTango().concat(personasTango());
 		titulo1='TangoWorld';
-		titulo2='<a href="https://www.facebook.com/profile.php?id=100093497583670" target="_blank">by KoKoTango</a>'+
+		titulo2='<a href="#" onclick="return muestraInfo()">by KoKoTango</a>'+
 			'<br><small>'+(esPrivado() ? 'private version' : 'public version')+'</small>';
 		for (const t in TIPOS){ colorTipo.set(t,TIPOS[t].color); }
 		for (const r in ROLES){ colorTipo.set(r,ROLES[r].color); }
