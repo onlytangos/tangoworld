@@ -114,6 +114,9 @@ function claveUrl(u){
   // facebook.com/<id>, /p/<nombre>-<id>, /people/<nombre>/<id>: la misma que profile.php?id=<id>
   const fid=ruta.match(/^(?:facebook|fb)\.com\/(?:p\/[^\/]*-|people\/[^\/]+\/)?(\d{6,})$/);
   if (fid){return 'facebook.com/profile.php?id='+fid[1]}
+  // un evento: /events/<id>, también /events/s/<nombre>/<id> y /events/<sala>/<nombre>/<id> (como comun.clave_url)
+  const fev=ruta.match(/^(?:facebook|fb)\.com\/events\/(?:[^?]*\/)?(\d{6,})$/);
+  if (fev){return 'facebook.com/events/'+fev[1]}
   const ps=/^(facebook\.com|fb\.com)/.test(ruta)
     ? q.split('&').filter(p => /^(id|fbid)=\d+$/.test(p)).slice(0,1)
     : q.split('&').filter(p => p && !SEGUIMIENTO.test(p));
