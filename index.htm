@@ -713,7 +713,7 @@ function iconoFav(nombre,ciudad){
 }
 
 function esc(s){
-	return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+	return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 }
 
 const ICONS={
@@ -1227,12 +1227,20 @@ function cierraCabecera(header,contadorL2){
 }
 
 function celdasVenue(mapa,venue){
-	if (!mapa.has(venue)){ mapa.set(venue,['','','','','','','','','']); }
+	// 0-6: las milongas de cada día y 8: las sin día ([{hora,nombre,url}]; antes un texto con | y #,
+	// y un nombre con # se partía); 7: la url de la sala
+	if (!mapa.has(venue)){ mapa.set(venue,[[],[],[],[],[],[],[],'',[]]); }
 	return mapa.get(venue);
 }
 
+function enlace(url){
+	// una url de verdad o nada ('-' no es un enlace)
+	url=String(url||'').trim();
+	return /^(https?:\/\/|www\.)/i.test(url) ? url : '';
+}
+
 function apuntaRegular(mapa,vistos,item){
-	if (item.tipo=='venue'){ celdasVenue(mapa,item.nombre)[7]=item.url; }
+	if (item.tipo=='venue'){ celdasVenue(mapa,item.nombre)[7]=enlace(item.url); }
 	const esReg=item.fechas.split('.')[0]=='REG';
 	if (!esReg && item.tipo!='milonga' && item.tipo!='practica'){ return false; }
 	const venue=(item.varios.loc||[''])[0];
@@ -1243,11 +1251,8 @@ function apuntaRegular(mapa,vistos,item){
 	const reg=esReg ? leeReg(item.fechas) : null;
 	let hora=reg ? reg.hora : '';
 	if (reg && reg.frec=='M'){hora=(hora ? hora+' ' : '')+semanasReg(reg.semanas)}
-	if (!reg || !reg.dias.length){
-		valor[8]=(valor[8]||'')+item.nombre+'|'+item.url+'|'+hora+'#';
-	}else{
-		for (const d of reg.dias){ valor[d]+=hora+'|'+item.nombre+'|'+item.url+'#'; }
-	}
+	const m={hora:hora, nombre:item.nombre, url:enlace(item.url)};
+	for (const d of (reg && reg.dias.length ? reg.dias : [8])){ valor[d].push(m); }
 	return true;
 }
 
@@ -1294,16 +1299,13 @@ function getTable(dataMap){
 	html+="<tr><th>venue</th><th>monday</th><th>tuesday</th><th>wednesday</th><th>thursday</th><th>friday</th><th>saturday</th><th>sunday</th></tr>";
 
 	for (const [venue, values] of dataMap) {
-		const sinDia=ordenColumnas.every(d => !values[d]);
-		if (sinDia && !values[8]){continue}
+		const sinDia=ordenColumnas.every(d => !values[d].length);
+		if (sinDia && !values[8].length){continue}
 		html+="<tr>";
 		let vurl=values[7]||'';
 		html+="<td>"+(vurl ? "<a href='"+esc(vurl)+"' target='_blank'>" : "")+esc(venue)+(vurl ? "</a>" : "");
 		let consultarCelda='';
-		(values[8]||'').split('#').forEach(bloque => {
-			if (bloque==''){return}
-			let [nombre,url,hora]=bloque.split('|');
-			url=url||''; hora=hora||'';
+		values[8].forEach(({nombre,url,hora}) => {
 			html+="<br/>"+(url ? "<a href='"+esc(url)+"' target='_blank'>" : "")+
 				"<span class='azul'>"+esc(nombre)+"</span>"+(url ? "</a>" : "")+" (?)";
 			if (sinDia){
@@ -1314,13 +1316,10 @@ function getTable(dataMap){
 
 		ordenColumnas.forEach(dia => {
 			let lineas=[];
-			(values[dia]||'').split('#').forEach(bloque => {
-				if (bloque==''){return}
-				let [hora,nombre,url]=bloque.split('|');
-				url=url||'';
-				let enlace=(url ? "<a href='"+esc(url)+"' target='_blank'>" : "")+
+			values[dia].forEach(({hora,nombre,url}) => {
+				let a=(url ? "<a href='"+esc(url)+"' target='_blank'>" : "")+
 					"<span class='azul'>"+esc(nombre)+"</span>"+(url ? "</a>" : "");
-				lineas.push(hora ? hora+"<br/>"+enlace : enlace);
+				lineas.push(hora ? hora+"<br/>"+a : a);
 			});
 			html+="<td>"+(lineas.length ? lineas.join('<br/>') : (sinDia ? consultarCelda : ""))+"</td>";
 		});
