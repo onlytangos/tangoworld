@@ -171,6 +171,7 @@ var TIPOS = {
   "venue":              {"color": "#fae3ad", "roles": "",        "desc": "sala, local"},
   "event":              {"color": "#e5f9ff", "roles": "",        "desc": "sin definir: no se sabe cuál (se decide más adelante)"},
   "event party":        {"color": "#d7f6fa", "roles": "mlg",     "desc": "fiesta: dos días o menos"},
+  "event milonga+":     {"color": "#7fe8c0", "roles": "mlg,shw", "desc": "milonga+: una noche de milonga con show (actuación, orquesta, música en vivo); si es de una milonga regular, salen las dos"},
   "event festival":     {"color": "#c3e8ff", "roles": "mlg,wks,shw", "desc": "festival: con artistas (shows, clases)"},
   "event encuentro":    {"color": "#7db1ff", "roles": "mlg,enc",     "desc": "encuentro milonguero"},
   "event marathon":     {"color": "#acccfc", "roles": "mlg,mar",     "desc": "maratón: sin artistas, solo baile"},
