@@ -8,12 +8,13 @@ var CAMPO = {
 // varios (gramática arriba) -> {nom: [valores]}; las listas {v1¬v2}, en sus
 // valores; los subcampos sin nombre válido no se leen. Igual que lee_varios()
 // de import/campos.py.
-const VARIOS=['lat','lon','dir','loc','org','www','vid','ins','tel','wec','kak','ema','prv','txt','fec'];
-const LISTAS=['org','www','vid','ins','tel','wec','kak','ema','prv','txt'];
+// lid: el id de la sala de loc; oid: los ids de las personas o grupos de org con ficha (el join, junto al nombre)
+const VARIOS=['lat','lon','dir','loc','lid','org','oid','ar1','ai1','ar2','ai2','www','vid','ins','tel','wec','kak','ema','prv','txt','fec'];
+const LISTAS=['org','oid','www','vid','ins','tel','wec','kak','ema','prv','txt'];
 function leeVarios(fila){
   const d={};
   for (const s of String(fila[CAMPO.varios]||'').split('#')){
-    const m=s.trim().match(/^([a-z]{3}):(.*)$/s);
+    const m=s.trim().match(/^([a-z]{2}[a-z0-9]):(.*)$/s);   // (ar1, ai1...)
     if (!m || !VARIOS.includes(m[1])){continue}
     const val=m[2].trim(), lista=LISTAS.includes(m[1]) && val.startsWith('{') && val.endsWith('}');
     for (const v of (lista ? val.slice(1,-1).split('¬') : [val]).map(x => x.trim())){
@@ -30,10 +31,16 @@ function fechaDe(fila){
   const f=(leeVarios(fila).fec||[''])[0];
   return ES_FECHA.test(f) ? f : '';
 }
+// una fecha EVT extrapolada (.EXT al final, opcional: EVT.9.OCT.20-24.2027.EXT): la de una edición pasada
+// llevada al presente, no la anunciada (import/pasos/fusiona.py fechaEvento). En las webs, con (unconfirmed)
+const UNCONFIRMED=' (unconfirmed)';
+function esExtrapolada(f){
+  return /^EVT\..*\.EXT$/.test(String(f||''));
+}
 
-// fecha regular REG (gramática arriba; igual que lee_reg de import/campos.py):
-// {frec: D|W|M, dias: [0-6] ([] sin día fijo), semanas: ['1'..'5','L'], hora};
-// null si no la sigue
+// fecha regular REG (gramática arriba; igual que leeReg de import/campos.py):
+// {frec: D|W|M|Q, dias: [0-6] ([] sin día fijo), semanas: ['1'..'5','L'], hora; Q: ancla 'AAAA-MM-DD'};
+// null si no la sigue. Q: cada 2 semanas, REG.Q.<día>.<hora>.<AAAAMMDD> (la fecha, una en que sale; 2026-11-01)
 function leeReg(f){
   const p=String(f||'').split('.');
   const horaOk=h => /^(\d{4}(-\d{4})?)?$/.test(h);
@@ -42,25 +49,53 @@ function leeReg(f){
   if (p[1]=='W' && p.length==4 && horaOk(p[3]) && /^(\?|[0-6](-[0-6])*)$/.test(p[2])){
     return {frec:'W', dias:p[2]=='?' ? [] : p[2].split('-').map(Number), semanas:[], hora:p[3]};
   }
-  if (p[1]=='M' && p.length==5 && horaOk(p[4]) && /^[0-6]$/.test(p[2]) && /^([1-5]|L)(-([1-5]|L))*$/.test(p[3])){
-    return {frec:'M', dias:[Number(p[2])], semanas:p[3].split('-'), hora:p[4]};
+  // (REG.M.<día>.?.<hora>: mensual sin saber qué semana del mes; semanas []: no sale ningún día concreto; 2026-11-02)
+  if (p[1]=='M' && p.length==5 && horaOk(p[4]) && /^[0-6]$/.test(p[2]) && /^(\?|([1-5]|L)(-([1-5]|L))*)$/.test(p[3])){
+    return {frec:'M', dias:[Number(p[2])], semanas:p[3]=='?' ? [] : p[3].split('-'), hora:p[4]};
+  }
+  if (p[1]=='Q' && p.length==5 && horaOk(p[3]) && /^[0-6]$/.test(p[2]) && /^\d{8}$/.test(p[4])){
+    const ancla=p[4].slice(0,4)+'-'+p[4].slice(4,6)+'-'+p[4].slice(6);
+    const d=new Date(ancla+'T00:00:00Z');
+    if (isNaN(d) || d.getUTCDay()!=Number(p[2])){return null}     // la fecha, en su día de la semana
+    return {frec:'Q', dias:[Number(p[2])], semanas:[], hora:p[3], ancla:ancla};
   }
   return null;
+}
+// la fecha REG f (texto o leeReg) sale el día d (Date, a medianoche local); como saleReg de import/campos.py
+function saleReg(f, d){
+  const r=typeof f=='string' ? leeReg(f) : f;
+  if (!r || !r.dias.includes(d.getDay())){return false}
+  if (r.frec=='M'){
+    const sem=String(Math.floor((d.getDate()-1)/7)+1);
+    const ult=new Date(d.getFullYear(), d.getMonth(), d.getDate()+7).getMonth()!=d.getMonth();
+    return r.semanas.includes(sem) || (r.semanas.includes('L') && ult);
+  }
+  if (r.frec=='Q'){
+    const dias=Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())-Date.parse(r.ancla+'T00:00:00Z'))/864e5);
+    return ((dias%14)+14)%14==0;
+  }
+  return true;
 }
 // semanas del mes de una REG mensual, en texto: ['2','4'] -> '2nd,4th'; L -> 'last'
 function semanasReg(ss){
   const ord={'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','L':'last'};
   return ss.map(s => ord[s]||s).join(',');
 }
-// texto corto de una fecha REG: 'daily 2000-2300', 'mon,wed 2000', 'fri 2nd,4th 2100', '? 2100'
+// texto corto de una fecha REG: 'daily 2000-2300', 'mon,wed 2000', 'fri 2nd,4th 2100', 'sat monthly (week?) 2100', 'every other wed 2000', '? 2100'
 function textoReg(f){
   const r=leeReg(f);
   if (!r){return String(f||'')}
   const dias=['sun','mon','tue','wed','thu','fri','sat'];
-  const cuando=r.frec=='D' ? 'daily' : (r.dias.length ? r.dias.map(d => dias[d]).join(',') : '?')
-    +(r.frec=='M' ? ' '+semanasReg(r.semanas) : '');
+  const cuando=r.frec=='D' ? 'daily' : (r.frec=='Q' ? 'every other ' : '')+(r.dias.length ? r.dias.map(d => dias[d]).join(',') : '?')
+    +(r.frec=='M' ? ' '+(r.semanas.length ? semanasReg(r.semanas) : 'monthly (week?)') : '');
   return cuando+(r.hora ? ' '+r.hora : '');
 }
+
+// las agendas de donde salen los datos (las fuentes de import/src.event, su "url:"): la página de una milonga en ellas
+// no es la web del evento y no se enseña (2026-11-01, el usuario: "en el detalle no pongas la fuente de datos, sino
+// la web del evento"); su portada sí (tangobratislava.com/ es la web de Tango Bratislava)
+const AGENDAS_WEB=/^https?:\/\/(www\.)?(agendadeltango\.com|canarytango\.com|hoy-milonga\.com|ktnow\.kr|malagamilongas\.com|tango-argentin\.fr|tangobratislava\.com|tangocat\.net|tango-international\.eu|tangolx\.com|tangomarathons\.com|tangotoday\.net|tangovalencia\.com|tangoweekend\.org)\/[^?#]*[^\/?#]/i;
+function esAgendaWeb(u){ return AGENDAS_WEB.test(String(u||'')); }
 
 // ═══════════════ UTILIDADES DE LAS PÁGINAS ═══════════════
 // (app.tw/index.htm, app.tg/index.htm y app.tg/admin.htm)
@@ -118,7 +153,7 @@ function claveUrl(u){
   const fev=ruta.match(/^(?:facebook|fb)\.com\/events\/(?:[^?]*\/)?(\d{6,})$/);
   if (fev){return 'facebook.com/events/'+fev[1]}
   const ps=/^(facebook\.com|fb\.com)/.test(ruta)
-    ? q.split('&').filter(p => /^(id|fbid)=\d+$/.test(p)).slice(0,1)
+    ? q.split('&').filter(p => /^(id|fbid)=\d+$|^set=[\w.]+$/.test(p)).slice(0,1)   // set=: el álbum (media/set)
     : q.split('&').filter(p => p && !SEGUIMIENTO.test(p));
   return ruta+(ps.length ? '?'+ps.join('&') : '');
 }
@@ -164,14 +199,13 @@ index.htm.
 */
 
 // roles: los roles de evento (ROLES_EVENTO) que lleva todo evento de ese tipo (paso1 roles_de_tipo);
-// los de un event (sin definir), solo a mano (el manual, resfoto in.txt)
+// los de un event (sin definir), solo a mano (el manual, resinput entrada.txt)
 var TIPOS = {
-  "milonga":            {"color": "#adf5d7", "roles": "mlg",     "desc": "milonga: regular (puede tener actuación)"},
+  "milonga":            {"color": "#adf5d7", "roles": "mlg",     "desc": "milonga: regular (REG) o de un día (EVT: rol iti, itinerante o especial; con show, rol shw)"},
   "practica":           {"color": "#d5f5c8", "roles": "prc",     "desc": "práctica: milonga relajada para practicar (regular)"},
   "venue":              {"color": "#fae3ad", "roles": "",        "desc": "sala, local"},
   "event":              {"color": "#e5f9ff", "roles": "",        "desc": "sin definir: no se sabe cuál (se decide más adelante)"},
   "event party":        {"color": "#d7f6fa", "roles": "mlg",     "desc": "fiesta: dos días o menos"},
-  "event milonga+":     {"color": "#7fe8c0", "roles": "mlg,shw", "desc": "milonga+: una noche de milonga con show (actuación, orquesta, música en vivo); si es de una milonga regular, salen las dos"},
   "event festival":     {"color": "#c3e8ff", "roles": "mlg,wks,shw", "desc": "festival: con artistas (shows, clases)"},
   "event encuentro":    {"color": "#7db1ff", "roles": "mlg,enc",     "desc": "encuentro milonguero"},
   "event marathon":     {"color": "#acccfc", "roles": "mlg,mar",     "desc": "maratón: sin artistas, solo baile"},
@@ -204,6 +238,7 @@ var ROLES = {
   "djm": {"publico": 1,"desc": "pasa música",                              "nombre": "tangoDJ",     "color": "#db94ff","colorPeople": "#db94ff"},
   "wrt": {"publico": 1,"desc": "crea contenido: artículos, vídeos, fotos", "nombre": "writer",      "color": "#f9fea0","colorPeople": "#F9EE90"},
   "tch": {"publico": 1,"desc": "profesor que da clases",                   "nombre": "teacher",     "color": "#b3f0e0","colorPeople": "#b3f0e0"},
+  "cpl": {"publico": 1,"desc": "pareja de baile: una ficha para los dos (sus bailarines: ar1 y ar2, sus ids: ai1 y ai2)", "nombre": "couple", "color": "#ffd6e7","colorPeople": "#ffd6e7"},
   "shp": {"publico": 1,"desc": "tienda",                                   "nombre": "shop",        "color": "#d4f5a3","colorPeople": "#d4f5a3"},
   "hst": {"publico": 1,"desc": "alojamiento",                              "nombre": "hostel",      "color": "#d9f2c4","colorPeople": "#d9f2c4"},
   "mil": {"publico": 0,"desc": "buen baile",                               "nombre": "milonguera",  "color": "#ffccff","colorPeople": "#ffccff"},
@@ -227,7 +262,8 @@ var ROLES_EVENTO = {
   "pvt": {"desc": "clases privadas",            "nombre": "private"},
   "shw": {"desc": "show",                       "nombre": "show"},
   "cup": {"desc": "competición, campeonato, cup", "nombre": "championship"},
-  "liv": {"desc": "música en vivo, orquesta",   "nombre": "live"}
+  "liv": {"desc": "música en vivo, orquesta",   "nombre": "live"},
+  "iti": {"desc": "milonga de un día: itinerante o especial (no es regular; suele coincidir con una regular)", "nombre": "itinerant"}
 };
 
 

@@ -676,9 +676,14 @@ function estadoFav(nombre,ciudad){
 
 const FAV2=['home','go'];
 
+// un evento o una milonga de un día (fecha EVT, rol iti; 2026-10-31: fuera milonga+)
+function esDeUnDia(item){
+	return String(item.tipo).startsWith('event') || String(item.fechas).startsWith('EVT');
+}
+
 function pasaFav2(item){
 	if (parametros.fav2==undefined || !favLista.length){return true}
-	return String(item.tipo).startsWith('event') &&
+	return esDeUnDia(item) &&
 		FAV2.includes(estadoFav(item.nombre,item.ciudad));
 }
 
@@ -1242,15 +1247,16 @@ function enlace(url){
 function apuntaRegular(mapa,vistos,item){
 	if (item.tipo=='venue'){ celdasVenue(mapa,item.nombre)[7]=enlace(item.url); }
 	const esReg=item.fechas.split('.')[0]=='REG';
-	if (!esReg && item.tipo!='milonga' && item.tipo!='practica'){ return false; }
-	const venue=(item.varios.loc||[''])[0];
+	if (!esReg && (item.tipo!='milonga' && item.tipo!='practica' || String(item.fechas).startsWith('EVT'))){ return false; }   // (una milonga de un día, iti: no va a la sala)
+	const venue=[(item.varios.loc||[''])[0]].map(v => v=='?' ? '' : v)[0];   // (? = la sala por saber: sin sala)
 	const clave=venue+'#'+(esReg ? item.fechas : '?')+'#'+item.nombre;
 	if (vistos.has(clave)){ return false; }
 	vistos.add(clave);
 	const valor=celdasVenue(mapa,venue);
 	const reg=esReg ? leeReg(item.fechas) : null;
 	let hora=reg ? reg.hora : '';
-	if (reg && reg.frec=='M'){hora=(hora ? hora+' ' : '')+semanasReg(reg.semanas)}
+	if (reg && reg.frec=='M'){hora=(hora ? hora+' ' : '')+(reg.semanas.length ? semanasReg(reg.semanas) : 'monthly (week?)')}
+	if (reg && reg.frec=='Q'){hora=(hora ? hora+' ' : '')+'every 2 weeks'}
 	const m={hora:hora, nombre:item.nombre, url:enlace(item.url)};
 	for (const d of (reg && reg.dias.length ? reg.dias : [8])){ valor[d].push(m); }
 	return true;
@@ -1358,7 +1364,7 @@ function fechaOComentario(item){
 	if (campo7=='' || campo7=='-'){return {fecha:'', coment:''}}
 	const prt=campo7.split('.');
 	if (prt[0]=='REG'){return {fecha:'<div class="itemLinea">'+esc(textoReg(campo7))+'</div>', coment:''}}
-	if (prt[0]=='EVT'){return {fecha:'<div class="itemLinea">'+prt[2]+'.'+prt[4]+'</div>', coment:''}}
+	if (prt[0]=='EVT'){return {fecha:'<div class="itemLinea">'+prt[2]+'.'+prt[4]+(esExtrapolada(campo7) ? UNCONFIRMED : '')+'</div>', coment:''}}
 	const resto=sinUrls(campo7);
 	return {fecha:urlsDe([campo7]).map(iconoUrl).join(' '), coment:resto ? '<div class="itemLinea">'+esc(resto)+'</div>' : ''};
 }
@@ -1377,7 +1383,7 @@ function textoPersona(item,etiqueta,fc){
 
 function textoElemento(item,etiqueta,fc){
 	const scity=(item.ciudad!='' && item.ciudad!='-') ? esc(item.ciudad)+',&nbsp;' : '';
-	const fav=String(item.tipo).startsWith('event') ? iconoFav(item.nombre,item.ciudad) : '';
+	const fav=esDeUnDia(item) ? iconoFav(item.nombre,item.ciudad) : '';
 	const slink=(item.url!='' && item.url!='-') ?
 		'<a href="'+item.url.replace(/"/g,'%22')+'" target="_blank">'+icon('external')+'</a>' : '';
 	const swww=[iconosVarios(item.varios,item.url),contactosVarios(item.varios)].filter(Boolean).join(' ');
@@ -1438,7 +1444,7 @@ function entradaAnual(i){
 	const fin=(y)=>(sinDia ? new Date(y,mes+1,0) : new Date(y,mes,dia));
 	if (fin(year)<actual){ year=actual.getFullYear(); }
 	if (fin(year)<actual){ year++; }
-	o.estimado=(String(year)!=p[4]);
+	o.estimado=(String(year)!=p[4]) || esExtrapolada(o.fechas);   // estimada aquí o ya en los datos (.EXT)
 	o.ofecha=new Date(year,mes,sinDia ? 1 : dia);
 	o.colorMes=mes;
 	// móvil: el mes (2026OCT) va en su propia línea; en la del evento, solo el día
@@ -1473,7 +1479,7 @@ function textoAnual(item,primero){
 	const snombre='<span class="nombreAnual" title="'+esc(nombre)+'">'+(iconoFav(item.nombre,item.ciudad)||(favLista.length ? '&nbsp;'.repeat(3) : ''))+esc(nombre)+'</span>';
 	const sdonde='<span class="dondeAnual">&nbsp;('+esc(item.ciudad)+(movil ? '' : ','+esc(item.pais))+')</span>';
 	return sfecha+stipo+'<span>&nbsp;</span>'+snombre+sdonde+
-		(item.estimado ? '<span>&nbsp;<span title="fecha estimada: repite la edición anterior">&#9203;</span></span>' : '');
+		(item.estimado ? '<span title="fecha estimada: repite la edición anterior">'+UNCONFIRMED.replace(' ', '&nbsp;')+'</span>' : '');
 }
 
 function cabeceraMes(item){
@@ -1524,7 +1530,7 @@ function renderAnnualCompact(s0,s1,s2,s3,s4){
 // una línea compacta de 4 columnas por cada una: hora (1530-1900), frecuencia (weekly, daily, 1ª 3ª, last; si todas
 // son weekly, sin esta columna), nombre y venue
 const DIAS_REG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const frecReg = r => r.frec=='D' ? 'daily' : r.frec=='W' ? 'weekly' : r.semanas.map(s => s=='L' ? 'last' : s+'ª').join(' ');
+const frecReg = r => r.frec=='D' ? 'daily' : r.frec=='W' ? 'weekly' : r.frec=='Q' ? 'every 2 weeks' : r.semanas.map(s => s=='L' ? 'last' : s+'ª').join(' ');
 
 function renderRegDay(s0,s1,s2){
 	const results=document.getElementById('resultados');
@@ -1536,7 +1542,7 @@ function renderRegDay(s0,s1,s2){
 		if (!sinFiltro(s0) && item.fila[CAMPO.area]!=s0){continue}
 		if (!sinFiltro(s1) && s1!=item.pais){continue}
 		if (!sinFiltro(s2) && s2!=item.ciudad){continue}
-		item.venue=(item.varios.loc||['-'])[0];
+		item.venue=[(item.varios.loc||['-'])[0]].map(v => v=='?' ? '-' : v)[0];   // (? = la sala por saber)
 		const clave=item.venue+'#'+item.fechas+'#'+item.nombre;
 		if (vistos.has(clave)){continue}
 		vistos.add(clave);
