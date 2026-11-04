@@ -58,10 +58,6 @@ select, input, table {
     overflow: visible;
     text-overflow: clip;
 }
-.datos{
-	position:relative;
-	top:-1px;
-}
 img{
 	width:12px;
 }
@@ -98,26 +94,10 @@ select{
 	padding-right: 4px;
 	padding-left: 4px;
 }
-.stipo2{
-	border-radius:0px 8px 8px 0px;
-	width: 100px;
-	height: 18px;
-}
 .stipo3{
 	border-radius: 0px 10px 10px 0px;
 	display: inline-flex;
 	width: 65px;
-	height: 16px;
-	overflow: hidden;
-	white-space: nowrap;
-	z-index:9;
-	padding-right:8px;
-	padding-left:8px;
-}
-.stipo4{
-	border-radius:0px 10px 10px 0px;
-	display: inline-block;
-	width: 80px;
 	height: 16px;
 	overflow: hidden;
 	white-space: nowrap;
@@ -146,15 +126,6 @@ select{
 }
 a:link,a:visited,a:focus,a:active{
 	text-decoration: none;
-}
-a#link:hover{
-	margin-left:3px;
-}
-a#link{
-	width:15px;
-	position:relative;
-	top:3px;
-	z-index:0;
 }
 .icon{
 	vertical-align:-0.15em;
@@ -366,10 +337,12 @@ li.anual .dondeAnual{
 #kk p{
 	margin: 0px 0px 6px 0px;
 }
-#kk ul{
-	list-style: circle;
-	margin: 6px 0px;
-	padding-left: 1.3em;
+#kkTexto{
+	display: block;
+	width: min(380px, 70vw);
+	height: 190px;
+	border: 0;
+	margin-bottom: 6px;
 }
 #kk li{
 	margin: 4px 0px;
@@ -402,7 +375,6 @@ li.anual .dondeAnual{
 
 <script src='datajs/aux.js'></script>
 <script id='fuente1' src='datajs/datos.cifrados.js'></script>
-<script id='fuente4' src='datajs/fotoid.js'></script>
 
 <script>
 
@@ -424,7 +396,6 @@ var busqueda='';
 var colorTipo=new Map();
 var titulo1,titulo2;
 var parametros={};
-var ocultar='';
 var app;
 var filasVisibles=new Set();
 
@@ -466,20 +437,18 @@ function deParametrosGlobe(q){
 }
 
 // el popup de KoKoTango, como el de KK de tangoglobe; abajo, go to tangoglobe con lo elegido aquí (urlGlobe)
-const FB_KOKO='https://www.facebook.com/profile.php?id=100093497583670';
 function muestraInfo(){
 	let d=document.getElementById('kk');
 	if (!d){
 		d=document.createElement('dialog');
 		d.id='kk';
 		d.innerHTML='<button id="kkCerrar" title="close">&times;</button>'+
-			'<p><a href="'+FB_KOKO+'" target="_blank" rel="noopener">by KoKoTango</a> ('+(esPrivado() ? 'private version' : 'public version')+')</p>'+
-			'<p><a href="'+FB_KOKO+'" target="_blank" rel="noopener">send me a message with your urls</a></p>'+
-			'<ul><li>powered by Opus 5.5</li>'+
-			'<li><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> (Creative Commons Reconocimiento–NoComercial–CompartirIgual)</li></ul>'+
+			'<iframe id="kkTexto" src="atribucionkk.htm?tema=claro&v='+(esPrivado() ? 'private version' : 'public version')+'" title="KoKoTango"></iframe>'+
 			'<p><a id="aTg" href="#" target="_blank" rel="noopener">go to tangoglobe</a></p>';
 		document.body.appendChild(d);
 		d.querySelector('#kkCerrar').onclick=() => d.close();
+		const f=d.querySelector('#kkTexto');
+		window.addEventListener('message',e => { if (e.source==f.contentWindow && e.data.kkAlto>0){ f.style.height=e.data.kkAlto+'px'; } });
 		d.onclick=e => { if (e.target==d){ d.close(); } };
 		d.querySelector('#aTg').onclick=() => { d.querySelector('#aTg').href=urlGlobe(); };
 	}
@@ -761,7 +730,7 @@ function iconoUrl(u,vid){
 }
 function contactosVarios(v){
 	const a=(href,t) => '<a href="'+href.replace(/"/g,'%22')+'" target="_blank">'+esc(t)+'</a>';
-	return [...(v.ins||[]).map(u => a('https://www.instagram.com/'+encodeURIComponent(u)+'/','@'+u)),
+	return [...(v.ins||[]).map(u => /^https?:/.test(u) ? a(u,'Instagram') : a('https://www.instagram.com/'+encodeURIComponent(u)+'/','@'+u)),
 		...(v.ema||[]).map(e => a('mailto:'+e,e)),
 		...(v.tel||[]).map(t => esc('☎ '+t)),
 		...(v.wec||[]).map(w => esc('WeChat '+w)),
@@ -769,7 +738,7 @@ function contactosVarios(v){
 }
 function iconosVarios(v,excluir){
 	const vids=urlsDe(v.vid||[],excluir);
-	const otras=urlsDe([...(v.www||[]),...(v.txt||[])],excluir).filter(u => !vids.includes(u));
+	const otras=urlsDe([...(v.www||[]),...(v.txt||[])],excluir).filter(u => !vids.includes(u) && !esAgendaWeb(u));
 	return [...vids.map(u => iconoUrl(u,true)),...otras.map(u => iconoUrl(u))].join(' ');
 }
 function spanRoles(tipo,sep){
@@ -937,6 +906,7 @@ function comandoReset(){
 	if (inp){ inp.value=''; }
 	busqueda='';
 	datos=datosAll;
+	delete parametros.fav; delete parametros.fav2;
 	const sel5=document.getElementById('selector5');
 	if (sel5){ sel5.value=fsel5; }
 	recargarSelectores();
@@ -1017,21 +987,20 @@ function cuentaCol(col,col1,v1){
 const tipoRol = f => { const t=String(f[CAMPO.tipo]).trim(), r=String(f[CAMPO.roles]||'-');
 	return t=='person' ? r : t in TIPOS_PERSONA ? [t, ...r.split(',').filter(x => x && x!='-')].join(',') : f[CAMPO.tipo]; };
 
+// la fila, en el área, el país y la ciudad elegidos (los contadores de los selectores)
+function enLugarElegido(d){
+	const v=n => document.getElementById('selector'+n).value;
+	const en=(n,col) => v(n)=='all' || v(n)=='' || d[col]==v(n);
+	return en(0,CAMPO.area) && en(1,CAMPO.country) && en(2,CAMPO.city);
+}
+
 function cuentaCol2(col){
 	const valorDe=(typeof col=='function') ? col : (fila => fila[col]);
-	let v1=document.getElementById('selector1').value;
-	let v2=document.getElementById('selector2').value;
-	let col1=CAMPO.country;
-	let col2=CAMPO.city;
 	const m=new Map();
-	for (let i=0;i<datos.length;i++){
-		if(v1=='all' || v1=='' || datos[i][col1]==v1){
-			if(v2=='all' || v2=='' || datos[i][col2]==v2){
-				let valor=String(valorDe(datos[i])).split(',');
-				for (let k=0;k<valor.length;k++){
-					if (valor[k]!=''){ m.set(valor[k],(m.get(valor[k])||0)+1); }
-				}
-			}
+	for (const d of datos){
+		if (!enLugarElegido(d)){continue}
+		for (const x of String(valorDe(d)).split(',')){
+			if (x!=''){ m.set(x,(m.get(x)||0)+1); }
 		}
 	}
 	return m;
@@ -1047,17 +1016,7 @@ function sumaCuenta(mapa, valorLista){
 }
 
 function cuentaFilasTipo(valorLista){
-	let v1=document.getElementById('selector1').value;
-	let v2=document.getElementById('selector2').value;
-	let total=0;
-	for (let i=0;i<datos.length;i++){
-		if(v1=='all' || v1=='' || datos[i][CAMPO.country]==v1){
-			if(v2=='all' || v2=='' || datos[i][CAMPO.city]==v2){
-				if (filtra(valorLista,tipoRol(datos[i]))!=-1){ total++; }
-			}
-		}
-	}
-	return total;
+	return datos.filter(d => enLugarElegido(d) && filtra(valorLista,tipoRol(d))!=-1).length;
 }
 
 function cuentaTipoEVT(){
@@ -1128,7 +1087,9 @@ function change3(e){ if (app!='people'){crearSelDates()} change4(e); }
 function change4(e){ renderGo(); }
 
 function setSel(){
+	const antes=document.getElementById('selector3').value;     // (?tipo=, b= y go to tangoworld: crearSelType lo vaciaba)
 	crearSelType();
+	if (antes){ cambiarValorSelector('selector3',antes); }
 	const sel5=document.getElementById('selector5');
 	const s5=sel5 ? sel5.value : '';
 	const sel4=document.getElementById('selector4');
@@ -1155,6 +1116,7 @@ function setSel(){
 function change5(e){
 	const s5=document.getElementById('selector5').value;
 	if (opcionesFav.includes(s5)){ window.location.search='?vista=annual&'+s5+'&area=Asia'; return }
+	delete parametros.fav; delete parametros.fav2;     // (otra vista: "mi agenda" ya no filtra)
 	const s0=document.getElementById('selector0').value;
 	const s1=document.getElementById('selector1').value;
 	const s2=document.getElementById('selector2').value;
@@ -1186,13 +1148,9 @@ function filtra(cadena1,cadena2){
 		if (cadena1[0]=='+'){ return hay ? 1 : -1; }
 		return (!hay && !esEvento(cadena2)) ? 1 : -1;
 	}
-	let lista1=cadena1.split(',');
-	for (const x of lista1){
-		if (cadena2.indexOf(x)!=-1){
-			return 1;
-		}
-	}
-	return -1;
+	// (por elementos: el rol art no es "event party", ni mil es milonga; "event" sí son todos los event ...)
+	const tipos=String(cadena2).split(',').map(t => t.trim());
+	return cadena1.split(',').some(x => tipos.some(t => t==x || t.split(' ')[0]==x)) ? 1 : -1;
 }
 
 function listaPaises(s0,s1){
@@ -1364,7 +1322,7 @@ function fechaOComentario(item){
 	if (campo7=='' || campo7=='-'){return {fecha:'', coment:''}}
 	const prt=campo7.split('.');
 	if (prt[0]=='REG'){return {fecha:'<div class="itemLinea">'+esc(textoReg(campo7))+'</div>', coment:''}}
-	if (prt[0]=='EVT'){return {fecha:'<div class="itemLinea">'+prt[2]+'.'+prt[4]+(esExtrapolada(campo7) ? UNCONFIRMED : '')+'</div>', coment:''}}
+	if (prt[0]=='EVT'){return {fecha:'<div class="itemLinea">'+prt[2]+'.'+prt[4]+(item.varios.ext ? ' (no verificado)' : '')+'</div>', coment:''}}   // (ext: extrapolado del año pasado)
 	const resto=sinUrls(campo7);
 	return {fecha:urlsDe([campo7]).map(iconoUrl).join(' '), coment:resto ? '<div class="itemLinea">'+esc(resto)+'</div>' : ''};
 }
@@ -1392,7 +1350,7 @@ function textoElemento(item,etiqueta,fc){
 	const esPersona=!esEvento(item.tipo);
 	const delante=esPersona ? '' : etiqueta.replace('event','').trim()+'&nbsp;';
 	const sroles=(esPersona && etiqueta) ? '&nbsp;('+spanRoles(item.tipo,' ')+')' : '';
-	const autor=sinUrls((item.varios.loc||item.varios.txt||[''])[0]);
+	const autor=sinUrls(locDe(item.fila) || (item.varios.txt||[''])[0]);
 	const orgs=(item.tipo=='milonga' || item.tipo=='practica') ? (item.varios.org||[]).join(', ') : '';
 	return delante+scity+fav+esc(item.nombre)+sroles+(dentro ? '&nbsp;('+dentro+')' : '')+
 		(autor ? '&nbsp;['+esc(autor)+']' : '')+(orgs ? '&nbsp;org:&nbsp;'+esc(orgs) : '')+
@@ -1441,10 +1399,10 @@ function entradaAnual(i){
 	const mes=parseInt(p[1]);
 	const dia=p[3].split('-')[0];
 	const sinDia=(dia=='?');
-	const fin=(y)=>(sinDia ? new Date(y,mes+1,0) : new Date(y,mes,dia));
-	if (fin(year)<actual){ year=actual.getFullYear(); }
-	if (fin(year)<actual){ year++; }
-	o.estimado=(String(year)!=p[4]) || esExtrapolada(o.fechas);   // estimada aquí o ya en los datos (.EXT)
+	// (su último día: lo que ya ha empezado y aún no ha terminado no ha pasado; 2026-11-03)
+	const e=leeEvt(o.fechas);
+	const fin=(y)=>new Date(e.fin.getFullYear()+(y-e.anyo),e.fin.getMonth(),e.fin.getDate(),23,59,59);
+	if (fin(year)<actual){return null}   // (ya pasado: no sale)
 	o.ofecha=new Date(year,mes,sinDia ? 1 : dia);
 	o.colorMes=mes;
 	// móvil: el mes (2026OCT) va en su propia línea; en la del evento, solo el día
@@ -1478,8 +1436,7 @@ function textoAnual(item,primero){
 	const nombre=item.nombre;
 	const snombre='<span class="nombreAnual" title="'+esc(nombre)+'">'+(iconoFav(item.nombre,item.ciudad)||(favLista.length ? '&nbsp;'.repeat(3) : ''))+esc(nombre)+'</span>';
 	const sdonde='<span class="dondeAnual">&nbsp;('+esc(item.ciudad)+(movil ? '' : ','+esc(item.pais))+')</span>';
-	return sfecha+stipo+'<span>&nbsp;</span>'+snombre+sdonde+
-		(item.estimado ? '<span title="fecha estimada: repite la edición anterior">'+UNCONFIRMED.replace(' ', '&nbsp;')+'</span>' : '');
+	return sfecha+stipo+'<span>&nbsp;</span>'+snombre+sdonde;
 }
 
 function cabeceraMes(item){
@@ -1519,7 +1476,7 @@ function renderAnnualCompact(s0,s1,s2,s3,s4){
 		item.texto=textoAnual(item,primero);
 		span.innerHTML=item.texto;
 		li.appendChild(span);
-		if (item.url){agregaEnlace(li,item.url)}
+		if (item.url && item.url!='-'){agregaEnlace(li,item.url)}
 		results.appendChild(li);
 	}
 	results.innerHTML+='<br/><br/>';
@@ -1587,25 +1544,7 @@ function render(s0,s1,s2,s3,s4,s5){
 	sumario.innerHTML='&#128202;<span>'+' total : '+contadorL1+'</span><br/><br/>';
 }
 
-// los datos, en GitHub cifrados (cmd.publicar/cifra.py: datajs/datos.cifrados.js, AES-GCM): se
-// descifran con la clave de la url, info/#k=<clave> (el # no llega al servidor); en local, sin cifrar
-async function descifra(){
-	if (typeof DATOS_CIFRADOS=='undefined') return true;
-	const k=new URLSearchParams(location.hash.slice(1)).get('k')||'';
-	try {
-		const bytes=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
-		const datos=bytes(DATOS_CIFRADOS);
-		const clave=await crypto.subtle.importKey('raw',bytes(k.replace(/-/g,'+').replace(/_/g,'/')),'AES-GCM',false,['decrypt']);
-		const texto=await crypto.subtle.decrypt({name:'AES-GCM',iv:datos.slice(0,12)},clave,datos.slice(12));
-		(0,eval)(new TextDecoder().decode(texto));   // var publictango=[...]
-		return true;
-	} catch(e){
-		document.body.textContent=k ? 'la clave de la url no es válida' : 'falta la clave en la url (#k=...)';
-		return false;
-	}
-}
-
-window.onload=async()=>{ if (await descifra()) inicio(); };
+window.onload=async()=>{ if (await descifra(t => document.body.textContent=t)) inicio(); };
 
 </script>
 </head>

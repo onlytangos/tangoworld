@@ -6,10 +6,11 @@ var CAMPO = {
 };
 
 // varios (gramática arriba) -> {nom: [valores]}; las listas {v1¬v2}, en sus
-// valores; los subcampos sin nombre válido no se leen. Igual que lee_varios()
+// valores; los subcampos sin nombre válido no se leen. Igual que leeVarios()
 // de import/campos.py.
 // lid: el id de la sala de loc; oid: los ids de las personas o grupos de org con ficha (el join, junto al nombre)
-const VARIOS=['lat','lon','dir','loc','lid','org','oid','ar1','ai1','ar2','ai2','www','vid','ins','tel','wec','kak','ema','prv','txt','fec'];
+// ext: la fecha real de un evento extrapolado (su fec, llevada al año siguiente: "no verificado"; la pone el join)
+const VARIOS=['lat','lon','dir','loc','lid','org','oid','ar1','ai1','ar2','ai2','www','vid','ins','tel','wec','kak','ema','prv','txt','fec','ext'];
 const LISTAS=['org','oid','www','vid','ins','tel','wec','kak','ema','prv','txt'];
 function leeVarios(fila){
   const d={};
@@ -25,19 +26,12 @@ function leeVarios(fila){
 }
 
 // fecha de un evento (subcampo fec de varios), '' si no tiene. Igual que
-// fecha_de() de import/campos.py.
+// fechaDe() de import/campos.py.
 const ES_FECHA=/^(EVT|REG)\./;
 function fechaDe(fila){
   const f=(leeVarios(fila).fec||[''])[0];
   return ES_FECHA.test(f) ? f : '';
 }
-// una fecha EVT extrapolada (.EXT al final, opcional: EVT.9.OCT.20-24.2027.EXT): la de una edición pasada
-// llevada al presente, no la anunciada (import/pasos/fusiona.py fechaEvento). En las webs, con (unconfirmed)
-const UNCONFIRMED=' (unconfirmed)';
-function esExtrapolada(f){
-  return /^EVT\..*\.EXT$/.test(String(f||''));
-}
-
 // fecha regular REG (gramática arriba; igual que leeReg de import/campos.py):
 // {frec: D|W|M|Q, dias: [0-6] ([] sin día fijo), semanas: ['1'..'5','L'], hora; Q: ancla 'AAAA-MM-DD'};
 // null si no la sigue. Q: cada 2 semanas, REG.Q.<día>.<hora>.<AAAAMMDD> (la fecha, una en que sale; 2026-11-01)
@@ -77,6 +71,27 @@ function saleReg(f, d){
   return true;
 }
 // semanas del mes de una REG mensual, en texto: ['2','4'] -> '2nd,4th'; L -> 'last'
+// fecha EVT -> {anyo, mes (0-11), ini, fin}: sus días (Date; fin, el final del último; días como 24-7, hasta el mes siguiente). Sin
+// día (?): ini null y fin, el final del mes. null si no es EVT. Como leeEvt() de import/campos.py
+function leeEvt(f){
+  const m=String(f||'').match(/^EVT\.(\d{1,2})\.[A-Z]{3}\.(\?|\d{1,2}(?:-\d{1,2})?)\.(\d{4})/);
+  if (!m) return null;
+  const mes=+m[1], anyo=+m[3];
+  if (m[2]=='?') return {anyo, mes, ini: null, fin: new Date(anyo, mes+1, 0, 23, 59, 59)};
+  const [d1,d2]=m[2].split('-').map(Number), ultimo=d2===undefined ? d1 : d2;
+  return {anyo, mes, ini: new Date(anyo, mes, d1), fin: new Date(anyo, ultimo<d1 ? mes+1 : mes, ultimo, 23, 59, 59)};
+}
+// un evento ya empezado que aún no ha terminado
+function enCursoEvt(f){
+  const e=leeEvt(f), ahora=new Date();
+  return !!(e && e.ini && e.ini<=ahora && ahora<=e.fin);
+}
+// el nombre de su sala; '' si no se sabe (loc ?)
+function locDe(fila){
+  const l=(leeVarios(fila).loc||[''])[0];
+  return l=='?' ? '' : l;
+}
+
 function semanasReg(ss){
   const ord={'1':'1st','2':'2nd','3':'3rd','4':'4th','5':'5th','L':'last'};
   return ss.map(s => ord[s]||s).join(',');
@@ -102,7 +117,7 @@ function esAgendaWeb(u){ return AGENDAS_WEB.test(String(u||'')); }
 
 // true si el tipo (campo 4) es de un evento, venue, milonga, academy o list (su primera
 // palabra); si no, es una persona. Única regla para distinguirlos en las
-// páginas (en Python: es_tipo_evento de import/pagefb.py). list: fuente de
+// páginas (en Python: esTipoEvento de import/pagefb.py). list: fuente de
 // información; las mundiales tienen área 'World', país 'world' y ciudad '*world'
 function esEvento(tipo){
   return ['event','venue','milonga','practica','academy','list'].includes(String(tipo).trim().split(' ')[0]);
@@ -126,7 +141,7 @@ const esPrivado = () => typeof privatetango != 'undefined';
 // el día del join (var privatetangoFecha o publictangoFecha): '' si no lo trae
 const fechaTango = () => typeof privatetangoFecha != 'undefined' ? privatetangoFecha : typeof publictangoFecha != 'undefined' ? publictangoFecha : '';
 
-// id del registro (campo id: 8 letras al azar, fijo; lo pone el join, como es_id de
+// id del registro (campo id: 8 letras al azar, fijo; lo pone el join, como esId de
 // import/comun.py); '' si la fila no lo tiene
 function idDe(fila){
   const x = String(fila[CAMPO.id] || '').trim();
@@ -137,7 +152,7 @@ function idDe(fila){
 // www., m., web., mayúsculas, #ancla ni / final. Parámetros: en Facebook solo
 // id= y fbid=, y facebook.com/<id>, /p/<nombre>-<id> y /people/<nombre>/<id> como
 // profile.php?id=<id>; en las demás webs, todos salvo los de seguimiento (utm_,
-// fbclid...): en YouTube watch?v= es otro vídeo. Igual que clave_url de
+// fbclid...): en YouTube watch?v= es otro vídeo. Igual que claveUrl de
 // import/comun.py
 const SEGUIMIENTO=/^(utm_\w+|fbclid|gclid|mibextid|acontext|__tn__|__cft__\[?\d*\]?|rdid|ref|ref_src|si|igsh|share_url)=/;
 function claveUrl(u){
@@ -149,7 +164,7 @@ function claveUrl(u){
   // facebook.com/<id>, /p/<nombre>-<id>, /people/<nombre>/<id>: la misma que profile.php?id=<id>
   const fid=ruta.match(/^(?:facebook|fb)\.com\/(?:p\/[^\/]*-|people\/[^\/]+\/)?(\d{6,})$/);
   if (fid){return 'facebook.com/profile.php?id='+fid[1]}
-  // un evento: /events/<id>, también /events/s/<nombre>/<id> y /events/<sala>/<nombre>/<id> (como comun.clave_url)
+  // un evento: /events/<id>, también /events/s/<nombre>/<id> y /events/<sala>/<nombre>/<id> (como comun.claveUrl)
   const fev=ruta.match(/^(?:facebook|fb)\.com\/events\/(?:[^?]*\/)?(\d{6,})$/);
   if (fev){return 'facebook.com/events/'+fev[1]}
   const ps=/^(facebook\.com|fb\.com)/.test(ruta)
@@ -194,11 +209,11 @@ function bajaFichero(nombre,texto,tipo){
 TIPOS: tipos de evento (campo tiporol de las filas de eventos) con su color en
 index.htm (app mundo) y su descripción (desc: solo documenta, nadie la lee). Es
 la lista de tipos válidos: comun.py pone el más próximo a uno que no esté
-(tipo_proximo) y descarta la fila si no se parece a ninguno. El orden es el de
+(tipoProximo) y descarta la fila si no se parece a ninguno. El orden es el de
 index.htm.
 */
 
-// roles: los roles de evento (ROLES_EVENTO) que lleva todo evento de ese tipo (paso1 roles_de_tipo);
+// roles: los roles de evento (ROLES_EVENTO) que lleva todo evento de ese tipo (paso1 rolesDeTipo);
 // los de un event (sin definir), solo a mano (el manual, resinput entrada.txt)
 var TIPOS = {
   "milonga":            {"color": "#adf5d7", "roles": "mlg",     "desc": "milonga: regular (REG) o de un día (EVT: rol iti, itinerante o especial; con show, rol shw)"},
@@ -217,13 +232,16 @@ var TIPOS = {
 };
 
 // tipos de people (campo 4 de people, desde 2026-10-19; antes los roles cmt y bed), uno solo:
-// person un tanguero (con sus roles) o group un grupo o comunidad de tango (sin roles).
+// person un tanguero (con sus roles), group un grupo o comunidad de tango (sin roles) o couple
+// una pareja de baile, una ficha para los dos (con sus roles; sus bailarines: ar1 y ar2, sus
+// ids: ai1 y ai2; 2026-11-03, antes el rol cpl: el join lo cambia).
 // (hasta 2026-10-19, person se llamaba people y group, community; hasta 2026-10-29 había
 // también los tipos shop y hostel, ahora los roles shp y hst: el join los cambia)
-// publico: entra en publictango aunque no tenga roles públicos
+// publico: entra en publictango aunque no tenga roles públicos; conRoles: lleva roles (ROLES)
 var TIPOS_PERSONA = {
-  "person":    {"publico": 0, "desc": "un tanguero",                "color": "#f0f0f0"},
-  "group":     {"publico": 1, "desc": "grupo o comunidad de tango", "color": "#c8f0f0"}
+  "person":    {"publico": 0, "conRoles": 1, "desc": "un tanguero",                "color": "#f0f0f0"},
+  "group":     {"publico": 1, "conRoles": 0, "desc": "grupo o comunidad de tango", "color": "#c8f0f0"},
+  "couple":    {"publico": 1, "conRoles": 1, "desc": "pareja de baile: una ficha para los dos (sus bailarines: ar1 y ar2, sus ids: ai1 y ai2)", "color": "#ffd6e7"}
 };
 
 // ════════════════════════════ ROLES ════════════════════════════
@@ -238,15 +256,8 @@ var ROLES = {
   "djm": {"publico": 1,"desc": "pasa música",                              "nombre": "tangoDJ",     "color": "#db94ff","colorPeople": "#db94ff"},
   "wrt": {"publico": 1,"desc": "crea contenido: artículos, vídeos, fotos", "nombre": "writer",      "color": "#f9fea0","colorPeople": "#F9EE90"},
   "tch": {"publico": 1,"desc": "profesor que da clases",                   "nombre": "teacher",     "color": "#b3f0e0","colorPeople": "#b3f0e0"},
-  "cpl": {"publico": 1,"desc": "pareja de baile: una ficha para los dos (sus bailarines: ar1 y ar2, sus ids: ai1 y ai2)", "nombre": "couple", "color": "#ffd6e7","colorPeople": "#ffd6e7"},
   "shp": {"publico": 1,"desc": "tienda",                                   "nombre": "shop",        "color": "#d4f5a3","colorPeople": "#d4f5a3"},
   "hst": {"publico": 1,"desc": "alojamiento",                              "nombre": "hostel",      "color": "#d9f2c4","colorPeople": "#d9f2c4"},
-  "mil": {"publico": 0,"desc": "buen baile",                               "nombre": "milonguera",  "color": "#ffccff","colorPeople": "#ffccff"},
-  "com": {"publico": 0,"desc": "buena compañía",                           "nombre": "compañía",    "color": "#ffcccc","colorPeople": "#ffcccc"},
-  "vip": {"publico": 0,"desc": "mil+com+inf",                              "nombre": "mil+com+inf", "color": "#ff9999","colorPeople": "#ff9999"},
-  "dan": {"publico": 0,"desc": "baile regular",                            "nombre": "dancer",      "color": "#cfe8ff","colorPeople": "#cfe8ff"},
-  "inf": {"publico": 0,"desc": "proveedor de información",                 "nombre": "source",      "color": "#F9AA90","colorPeople": "#F9AA90"},
-  "non": {"publico": 0,"desc": "no interesa",                              "nombre": "pariah",      "color": "#e0e0e0","colorPeople": "#e0e0e0"}
 };
 
 // ROLES_EQUIVALENCIAS (roles antiguos -> rol de ROLES): en datajs/alias.js
@@ -285,27 +296,22 @@ de las que encuentran varios y de los estados que no son estos.
 
 */
 
-var favoritos=[
-  ["Big Milonga -Estrellas-","Suncheon","home"],
-  ["Busan Tango Marathon","Busan","home"],
-  ["Cherry Blossoms Milonga","Changwon","home"],
-  ["ChunCheon Tango Marathon","Chuncheon","home"],
-  ["Crab Milonga","Pohang","home"],
-  ["Daegu International Tango Marathon","Daegu","home"],
-  ["Festivalito de Tango en Hong Kong","Hong Kong","go"],
-  ["Greater China Tango Championship","Chengdu","think"],
-  ["Gunsan Sunset Tango Marathon","Gunsan","home"],
-  ["ICH Chengdu Tango Festival&Competition","Chengdu","think"],
-  ["Jeju Summ Milonga","Jeju","think"],
-  ["More than Tango Marathon & Festival & Cup","Shanghai","think"],
-  ["Nanjing Tango Festival","Nanjing","think"],
-  ["Oriental Tango Congress(OTC)","Beijing","think"],
-  ["Sakura Tango Festival","Fukuoka","think"],
-  ["Sapporo Tango Festival","Sapporo","think"],
-  ["Select Tango Weekend","Beijing","go"],
-  ["Shenyang Summer Ice & Snow Tango Weekend","Shenyang","go"],
-  ["Taiwan Tango Marathon","Doulan Village","go"], 
-  ["TANGO CHINA-Dapeng Tango Holiday","Shenzhen","go"],
-  ["Vietnam Tango Marathon","Da Nang","go"],
-  ["Hong Kong Tango Marathon","Hong Kong","go"],
-];
+
+// los datos, en GitHub cifrados (cmd.publicar/cifra.py: datajs/datos.cifrados.js, AES-GCM): se descifran con la clave de
+// la url, tangoworld/#k=<clave> o tangoglobe/#k=<clave> (el # no llega al servidor); en local, sin cifrar. aviso(texto):
+// cómo decir que falta la clave. true si hay datos
+async function descifra(aviso){
+  if (typeof DATOS_CIFRADOS == 'undefined') return true;
+  const k = new URLSearchParams(location.hash.slice(1)).get('k') || '';
+  try {
+    const bytes = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+    const datos = bytes(DATOS_CIFRADOS);
+    const clave = await crypto.subtle.importKey('raw', bytes(k.replace(/-/g, '+').replace(/_/g, '/')), 'AES-GCM', false, ['decrypt']);
+    const texto = await crypto.subtle.decrypt({name: 'AES-GCM', iv: datos.slice(0, 12)}, clave, datos.slice(12));
+    (0, eval)(new TextDecoder().decode(texto));   // var publictango=[...]
+    return true;
+  } catch (e){
+    aviso(k ? 'la clave de la url no es válida' : 'falta la clave en la url (#k=...)');
+    return false;
+  }
+}

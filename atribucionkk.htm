@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KoKoTango</title>
+<!-- atribucionkk.htm: el texto del popup de KoKoTango, el mismo en tangoglobe (app.tg) y tangoworld (app.tw).
+     Se carga en un iframe porque en local (file://) no se puede leer con fetch. push.sh lo copia a cada repo.
+     En la url: v= la versión (private version, public version); tema=claro, el de tangoworld.
+     Avisa a la página de su alto (kkAlto); el enlace "go to..." de abajo lo pone cada app. -->
+<style>
+  :root { color-scheme: dark; --fondo: #222; --texto: #fff; --enlace: #8ab4f8; }
+  :root.claro { color-scheme: light; --fondo: #fff; --texto: #222; --enlace: #2f5a8f; }
+  html, body { margin: 0; background: var(--fondo); }
+  body { display: flow-root; font-family: system-ui, sans-serif; color: var(--texto); font-size: .9em; }   /* flow-root: el alto, con el margen de la lista */
+  a { color: var(--enlace); text-decoration: none; font-weight: 600; }
+  a:hover { color: var(--texto); }
+  p { margin: 0; }
+  .enlace { display: inline-flex; align-items: center; gap: 5px; margin-top: 1em; }
+  .enlace svg { width: 16px; height: 16px; flex: none; }
+  ul { list-style: none; margin: .6em 0 0; padding: 0; }
+  li { position: relative; margin: .3em 0; padding-left: 14px; }
+  li::before { content: ''; position: absolute; left: 0; top: calc(.5lh - 3px); box-sizing: border-box; width: 6px; height: 6px;
+               border: 1px solid currentColor; border-radius: 50%; }
+  .creditos { font-size: .9em; }
+</style>
+</head>
+<body>
+<p><a href="https://www.facebook.com/profile.php?id=100093497583670" target="_blank" rel="noopener">by KoKoTango</a> <span id="version"></span></p>
+<p><a class="enlace" href="https://www.facebook.com/profile.php?id=100093497583670" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#8ab4f8"/><g fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round"><rect x="5" y="7.5" width="14" height="9.5" rx="1"/><path d="M5.5 8.2l6.5 5 6.5-5"/></g></svg>send me a message with your urls</a></p>
+<ul>
+  <li>powered by Opus 5.5</li>
+  <li class="creditos">map: tiles &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>, HERE, Garmin,
+    &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors;
+    countries: <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener">Natural Earth</a>;
+    <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a></li>
+  <li><a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a> (Creative Commons Reconocimiento–NoComercial–CompartirIgual)</li>
+</ul>
+<script>
+  const q = new URLSearchParams(location.search), v = q.get('v');
+  if (v) document.getElementById('version').textContent = '(' + v + ')';
+  if (q.get('tema') == 'claro') document.documentElement.classList.add('claro');
+  new ResizeObserver(() => parent.postMessage({kkAlto: Math.ceil(document.body.getBoundingClientRect().height)}, '*')).observe(document.body);
+</script>
+</body>
+</html>
