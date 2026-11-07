@@ -109,11 +109,11 @@ function textoReg(f){
 // las agendas de donde salen los datos (las fuentes de import/src.event, su "url:"): la página de una milonga en ellas
 // no es la web del evento y no se enseña (2026-11-01, el usuario: "en el detalle no pongas la fuente de datos, sino
 // la web del evento"); su portada sí (tangobratislava.com/ es la web de Tango Bratislava)
-const AGENDAS_WEB=/^https?:\/\/(www\.)?(agendadeltango\.com|canarytango\.com|hoy-milonga\.com|ktnow\.kr|malagamilongas\.com|tango-argentin\.fr|tangobratislava\.com|tangocat\.net|tango-international\.eu|tangolx\.com|tangomarathons\.com|tangotoday\.net|tangovalencia\.com|tangoweekend\.org)\/[^?#]*[^\/?#]/i;
+const AGENDAS_WEB=/^https?:\/\/(www\.)?(agendadeltango\.com|canarytango\.com|hoy-milonga\.com|ktnow\.kr|malagamilongas\.com|tango-argentin\.fr|tangobratislava\.com|tangocat\.net|tangoenbarcelona\.es|tango-international\.eu|tangolx\.com|tangomarathons\.com|tangotoday\.net|tangovalencia\.com|tangoweekend\.org)\/[^?#]*[^\/?#]/i;
 function esAgendaWeb(u){ return AGENDAS_WEB.test(String(u||'')); }
 
 // ═══════════════ UTILIDADES DE LAS PÁGINAS ═══════════════
-// (app.tw/index.htm, app.tg/index.htm y app.tg/admin.htm)
+// (app.tw/index.htm, app.tg/index.htm y cmd.review/admin.htm)
 
 // true si el tipo (campo 4) es de un evento, venue, milonga, academy o list (su primera
 // palabra); si no, es una persona. Única regla para distinguirlos en las
