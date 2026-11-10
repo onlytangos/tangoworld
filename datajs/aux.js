@@ -12,18 +12,31 @@ var CAMPO = {
 // ext: la fecha real de un evento extrapolado (su fec, llevada al año siguiente: "no verificado"; la pone el join)
 const VARIOS=['lat','lon','dir','loc','lid','org','oid','ar1','ai1','ar2','ai2','www','vid','ins','tel','wec','kak','ema','prv','txt','fec','ext'];
 const LISTAS=['org','oid','www','vid','ins','tel','wec','kak','ema','prv','txt'];
+// (cada vez un objeto nuevo, que se puede cambiar; el texto se analiza una vez, _VARIOS: como leeVarios de import/campos.py.
+// tangoglobe lo pide unas 25 veces por fila; 2026-11-10)
+const _VARIOS=new Map();
 function leeVarios(fila){
-  const d={};
-  for (const s of String(fila[CAMPO.varios]||'').split('#')){
-    const m=s.trim().match(/^([a-z]{2}[a-z0-9]):(.*)$/s);   // (ar1, ai1...)
-    if (!m || !VARIOS.includes(m[1])){continue}
-    const val=m[2].trim(), lista=LISTAS.includes(m[1]) && val.startsWith('{') && val.endsWith('}');
-    for (const v of (lista ? val.slice(1,-1).split('¬') : [val]).map(x => x.trim())){
-      if (v && v!='-'){(d[m[1]]=d[m[1]]||[]).push(v)}
+  const t=String(fila[CAMPO.varios]||'');
+  let p=_VARIOS.get(t);
+  if (!p){
+    const d={};
+    for (const s of t.split('#')){
+      const m=s.trim().match(/^([a-z]{2}[a-z0-9]):(.*)$/s);   // (ar1, ai1...)
+      if (!m || !VARIOS.includes(m[1])){continue}
+      const val=m[2].trim(), lista=LISTAS.includes(m[1]) && val.startsWith('{') && val.endsWith('}');
+      for (const v of (lista ? val.slice(1,-1).split('¬') : [val]).map(x => x.trim())){
+        if (v && v!='-'){(d[m[1]]=d[m[1]]||[]).push(v)}
+      }
     }
+    p=Object.entries(d);
+    _VARIOS.set(t,p);
   }
+  const d={};
+  for (const [k,vs] of p){d[k]=vs.slice()}
   return d;
 }
+// un texto sin acentos y en minúsculas, para buscar y comparar (tangoglobe, el admin de review)
+const sinAcentos = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 // fecha de un evento (subcampo fec de varios), '' si no tiene. Igual que
 // fechaDe() de import/campos.py.
