@@ -5,7 +5,7 @@
 <title>KoKoTango</title>
 <!-- atribucionkk.htm: el texto del popup de KoKoTango, el mismo en tangoglobe (app.tg) y tangoworld (app.tw).
      Se carga en un iframe porque en local (file://) no se puede leer con fetch. push.sh lo copia a cada repo.
-     En la url: v= la versión (private version, public version); tema=claro, el de tangoworld.
+     En la url: v= la versión (private version, public version); tema=claro, el de tangoworld; letra=tg, la de tangoglobe (Courier, en negrita, como su ficha).
      Avisa a la página de su alto (kkAlto); el enlace "go to..." de abajo lo pone cada app. -->
 <style>
   :root { color-scheme: dark; --fondo: #222; --texto: #fff; --enlace: #8ab4f8; }
@@ -22,6 +22,8 @@
   li::before { content: ''; position: absolute; left: 0; top: calc(.5lh - 3px); box-sizing: border-box; width: 6px; height: 6px;
                border: 1px solid currentColor; border-radius: 50%; }
   .creditos { font-size: .9em; }
+  :root.letraTg body { font-family: "Courier New", Courier, monospace; font-weight: bold; font-size: 18px; }   /* la de tangoglobe (2026-11-11, el usuario: "la fuente del popup de kk igual") */
+  :root.letraTg a { font-weight: bold; }
 </style>
 </head>
 <body>
@@ -40,6 +42,7 @@
   const q = new URLSearchParams(location.search), v = q.get('v');
   if (v) document.getElementById('version').textContent = '(' + v + ')';
   if (q.get('tema') == 'claro') document.documentElement.classList.add('claro');
+  if (q.get('letra') == 'tg') document.documentElement.classList.add('letraTg');
   new ResizeObserver(() => parent.postMessage({kkAlto: Math.ceil(document.body.getBoundingClientRect().height)}, '*')).observe(document.body);
 </script>
 </body>
