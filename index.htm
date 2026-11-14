@@ -443,7 +443,7 @@ function muestraInfo(){
 		d.id='kk';
 		d.innerHTML='<button id="kkCerrar" title="close">&times;</button>'+
 			'<iframe id="kkTexto" src="atribucionkk.htm?tema=claro&v='+(esPrivado() ? 'private version' : 'public version')+'" title="KoKoTango"></iframe>'+
-			'<p><a id="aTg" href="#" target="_blank" rel="noopener">go to tangoglobe</a></p>';
+			'<p><a id="aTg" href="#" target="_blank" rel="noopener">goto tangoglobe</a></p>';
 		document.body.appendChild(d);
 		d.querySelector('#kkCerrar').onclick=() => d.close();
 		const f=d.querySelector('#kkTexto');
