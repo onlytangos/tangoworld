@@ -456,7 +456,7 @@ function muestraInfo(){
 }
 
 // la url de tangoglobe con lo elegido aquí, en sus parámetros (los de urlRuta de app.tg): a, pa o ci, b (y r), f;
-// publicada, el Worker (/w, push.sh escribe URL_TG): sin la clave a la vista; en local, app.tg
+// publicada, el Worker (/w, run.sh escribe URL_TG): sin la clave a la vista; en local, app.tg
 const URL_TG='https://tangoinfo-eventos.55tgb.workers.dev/w';
 function bGlobe(tipo,vista){
 	if (vista=='regular' || vista=='regday'){ return ['mil',''] }
@@ -720,7 +720,7 @@ function urlsDe(subcampos,excluir){
 function sinUrls(t){
 	return String(t).replace(RE_URL,' ').replace(/\s+/g,' ').replace(/^[\s,;|\/:-]+|[\s,;|\/:-]+$/g,'');
 }
-// rutas relativas de los datos (img/... : las tablas de resbeto) desde la raíz de tangoinfo; push.sh deja RAIZ en ''
+// rutas relativas de los datos (img/... : las tablas de resbeto) desde la raíz de tangoinfo; run.sh deja RAIZ en ''
 const RAIZ = '';
 const deRaiz = u => /^img\//.test(String(u)) ? RAIZ + u : u;
 function iconoUrl(u,vid){
