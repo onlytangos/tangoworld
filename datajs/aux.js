@@ -10,7 +10,7 @@ var CAMPO = {
 // de import/campos.py.
 // lid: el id de la sala de loc; oid: los ids de las personas o grupos de org con ficha (el join, junto al nombre)
 // ext: la fecha real de un evento extrapolado (su fec, llevada al año siguiente: "no verificado"; la pone el join)
-const VARIOS=['lat','lon','dir','loc','lid','org','oid','ar1','ai1','ar2','ai2','www','vid','ins','tel','wec','kak','ema','prv','txt','fec','ext'];
+const VARIOS=['lat','lon','dir','ngh','loc','lid','org','oid','ar1','ai1','ar2','ai2','www','vid','ins','tel','wec','kak','ema','prv','txt','fec','ext'];
 const LISTAS=['org','oid','www','vid','ins','tel','wec','kak','ema','prv','txt'];
 // (cada vez un objeto nuevo, que se puede cambiar; el texto se analiza una vez, _VARIOS: como leeVarios de import/campos.py.
 // tangoglobe lo pide unas 25 veces por fila; 2026-11-10)
